@@ -33,6 +33,9 @@ struct SwipeDeckView: View {
     @State private var drag: CGSize = .zero
     @State private var hintOpacity: Double = 1
     @State private var didFireFinished = false
+    /// True while the user is pinch/double-tap zoomed into the current photo.
+    /// Blocks the deck swipe so one-finger pan navigates the zoomed image instead.
+    @State private var photoZoomed = false
 
     private var current: PHAsset? {
         guard index < assets.count else { return nil }
@@ -48,6 +51,7 @@ struct SwipeDeckView: View {
                     ZStack {
                         swipeHints
                             .allowsHitTesting(false)
+                            .opacity(photoZoomed ? 0 : 1)
                         card(for: asset, cardSize: cardSize)
                             .offset(drag)
                             .rotationEffect(.degrees(Double(drag.width / 20)))
@@ -55,7 +59,7 @@ struct SwipeDeckView: View {
                     .frame(width: geo.size.width, height: geo.size.height)
                     .contentShape(Rectangle())
                     .simultaneousGesture(
-                        DragGesture(minimumDistance: asset.mediaType == .video ? 28 : 8)
+                        DragGesture(minimumDistance: asset.mediaType == .video ? 28 : 14)
                             .onChanged { v in
                                 let tx = v.translation.width
                                 let ty = v.translation.height
@@ -84,7 +88,10 @@ struct SwipeDeckView: View {
                                     return
                                 }
                                 decide(translation: tx)
-                            }
+                            },
+                        // While the photo is zoomed in, hand off all single-finger gestures
+                        // to the inner UIScrollView so the user can pan the zoomed image.
+                        including: photoZoomed ? .subviews : .all
                     )
                 }
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
@@ -195,12 +202,22 @@ struct SwipeDeckView: View {
                 if asset.mediaType == .video {
                     SwipeCardVideoPreview(asset: asset, targetSide: side)
                 } else {
-                    PHAssetImageView(asset: asset, targetPixelSize: px, contentMode: .scaleAspectFit)
+                    ZoomablePhotoView(
+                        asset: asset,
+                        targetPixelSize: px,
+                        onZoomChange: { zoomed in
+                            if photoZoomed != zoomed {
+                                photoZoomed = zoomed
+                            }
+                        }
+                    )
                 }
             }
             .frame(maxWidth: .infinity, maxHeight: .infinity)
             .clipShape(RoundedRectangle(cornerRadius: innerRadius, style: .continuous))
             .padding(4)
+            // Forces a fresh ZoomablePhotoView (and therefore a reset zoom level) when the asset changes.
+            .id(asset.localIdentifier)
 
             RoundedRectangle(cornerRadius: AppTheme.cardCorner, style: .continuous)
                 .stroke(AppTheme.border, lineWidth: 1)
@@ -251,6 +268,7 @@ struct SwipeDeckView: View {
     }
 
     private func advance() {
+        photoZoomed = false
         withAnimation(.spring(response: 0.38, dampingFraction: 0.85)) {
             drag = .zero
             hintOpacity = 1
@@ -260,6 +278,7 @@ struct SwipeDeckView: View {
 
     private func undo() {
         guard let last = history.popLast() else { return }
+        photoZoomed = false
         index = max(0, index - 1)
         switch last {
         case let .markedDelete(id):
