@@ -42,3 +42,6 @@ fastlane/test_output
 
 # Misc
 *.log
+
+# Local tooling venvs (e.g. icon recolor script)
+.venv-icon/
