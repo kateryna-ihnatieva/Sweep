@@ -1,0 +1,326 @@
+// !$*UTF8*$!
+{
+	archiveVersion = 1;
+	classes = {
+	};
+	objectVersion = 56;
+	objects = {
+
+/* Begin PBXBuildFile section */
+		B10000000000000000000001 /* CleanGalleryApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = B20000000000000000000001 /* CleanGalleryApp.swift */; };
+		B10000000000000000000002 /* MainTabView.swift in Sources */ = {isa = PBXBuildFile; fileRef = B20000000000000000000002 /* MainTabView.swift */; };
+		B10000000000000000000003 /* MonthListView.swift in Sources */ = {isa = PBXBuildFile; fileRef = B20000000000000000000003 /* MonthListView.swift */; };
+		B10000000000000000000004 /* MonthCleanFlowView.swift in Sources */ = {isa = PBXBuildFile; fileRef = B20000000000000000000004 /* MonthCleanFlowView.swift */; };
+		B10000000000000000000005 /* RandomCleanView.swift in Sources */ = {isa = PBXBuildFile; fileRef = B20000000000000000000005 /* RandomCleanView.swift */; };
+		B10000000000000000000006 /* StatsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = B20000000000000000000006 /* StatsView.swift */; };
+		B10000000000000000000007 /* SwipeDeckView.swift in Sources */ = {isa = PBXBuildFile; fileRef = B20000000000000000000007 /* SwipeDeckView.swift */; };
+		B10000000000000000000008 /* StagedReviewView.swift in Sources */ = {isa = PBXBuildFile; fileRef = B20000000000000000000008 /* StagedReviewView.swift */; };
+		B10000000000000000000009 /* AssetThumbnailView.swift in Sources */ = {isa = PBXBuildFile; fileRef = B20000000000000000000009 /* AssetThumbnailView.swift */; };
+		B1000000000000000000000A /* GalleryViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = B2000000000000000000000A /* GalleryViewModel.swift */; };
+		B1000000000000000000000B /* Models.swift in Sources */ = {isa = PBXBuildFile; fileRef = B2000000000000000000000B /* Models.swift */; };
+		B1000000000000000000000C /* AppTheme.swift in Sources */ = {isa = PBXBuildFile; fileRef = B2000000000000000000000C /* AppTheme.swift */; };
+		B1000000000000000000000D /* ByteFormatting.swift in Sources */ = {isa = PBXBuildFile; fileRef = B2000000000000000000000D /* ByteFormatting.swift */; };
+		B1000000000000000000000E /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = B2000000000000000000000E /* Assets.xcassets */; };
+		B1000000000000000000000F /* DuplicateModels.swift in Sources */ = {isa = PBXBuildFile; fileRef = B2000000000000000000000F /* DuplicateModels.swift */; };
+		B10000000000000000000010 /* DuplicateScanner.swift in Sources */ = {isa = PBXBuildFile; fileRef = B20000000000000000000010 /* DuplicateScanner.swift */; };
+		B10000000000000000000011 /* DuplicateFinderViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = B20000000000000000000011 /* DuplicateFinderViewModel.swift */; };
+		B10000000000000000000012 /* DuplicatesViews.swift in Sources */ = {isa = PBXBuildFile; fileRef = B20000000000000000000012 /* DuplicatesViews.swift */; };
+		B10000000000000000000013 /* DeletionSummaryView.swift in Sources */ = {isa = PBXBuildFile; fileRef = B20000000000000000000013 /* DeletionSummaryView.swift */; };
+		B10000000000000000000014 /* PHAssetImageView.swift in Sources */ = {isa = PBXBuildFile; fileRef = B20000000000000000000014 /* PHAssetImageView.swift */; };
+/* End PBXBuildFile section */
+
+/* Begin PBXFileReference section */
+		B20000000000000000000001 /* CleanGalleryApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CleanGalleryApp.swift; sourceTree = "<group>"; };
+		B20000000000000000000002 /* MainTabView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MainTabView.swift; sourceTree = "<group>"; };
+		B20000000000000000000003 /* MonthListView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MonthListView.swift; sourceTree = "<group>"; };
+		B20000000000000000000004 /* MonthCleanFlowView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MonthCleanFlowView.swift; sourceTree = "<group>"; };
+		B20000000000000000000005 /* RandomCleanView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RandomCleanView.swift; sourceTree = "<group>"; };
+		B20000000000000000000006 /* StatsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = StatsView.swift; sourceTree = "<group>"; };
+		B20000000000000000000007 /* SwipeDeckView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SwipeDeckView.swift; sourceTree = "<group>"; };
+		B20000000000000000000008 /* StagedReviewView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = StagedReviewView.swift; sourceTree = "<group>"; };
+		B20000000000000000000009 /* AssetThumbnailView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AssetThumbnailView.swift; sourceTree = "<group>"; };
+		B2000000000000000000000A /* GalleryViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GalleryViewModel.swift; sourceTree = "<group>"; };
+		B2000000000000000000000B /* Models.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Models.swift; sourceTree = "<group>"; };
+		B2000000000000000000000C /* AppTheme.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppTheme.swift; sourceTree = "<group>"; };
+		B2000000000000000000000D /* ByteFormatting.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ByteFormatting.swift; sourceTree = "<group>"; };
+		B2000000000000000000000F /* DuplicateModels.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DuplicateModels.swift; sourceTree = "<group>"; };
+		B20000000000000000000010 /* DuplicateScanner.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DuplicateScanner.swift; sourceTree = "<group>"; };
+		B20000000000000000000011 /* DuplicateFinderViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DuplicateFinderViewModel.swift; sourceTree = "<group>"; };
+		B20000000000000000000012 /* DuplicatesViews.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DuplicatesViews.swift; sourceTree = "<group>"; };
+		B20000000000000000000013 /* DeletionSummaryView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DeletionSummaryView.swift; sourceTree = "<group>"; };
+		B20000000000000000000014 /* PHAssetImageView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PHAssetImageView.swift; sourceTree = "<group>"; };
+		B2000000000000000000000E /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
+		B30000000000000000000001 /* CleanGallery.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = CleanGallery.app; sourceTree = BUILT_PRODUCTS_DIR; };
+/* End PBXFileReference section */
+
+/* Begin PBXFrameworksBuildPhase section */
+		B40000000000000000000001 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXFrameworksBuildPhase section */
+
+/* Begin PBXGroup section */
+		B50000000000000000000001 = {
+			isa = PBXGroup;
+			children = (
+				B50000000000000000000002 /* CleanGallery */,
+				B50000000000000000000003 /* Products */,
+			);
+			sourceTree = "<group>";
+		};
+		B50000000000000000000002 /* CleanGallery */ = {
+			isa = PBXGroup;
+			children = (
+				B20000000000000000000001 /* CleanGalleryApp.swift */,
+				B20000000000000000000002 /* MainTabView.swift */,
+				B20000000000000000000003 /* MonthListView.swift */,
+				B20000000000000000000004 /* MonthCleanFlowView.swift */,
+				B20000000000000000000005 /* RandomCleanView.swift */,
+				B20000000000000000000006 /* StatsView.swift */,
+				B20000000000000000000007 /* SwipeDeckView.swift */,
+				B20000000000000000000008 /* StagedReviewView.swift */,
+				B20000000000000000000009 /* AssetThumbnailView.swift */,
+				B20000000000000000000014 /* PHAssetImageView.swift */,
+				B2000000000000000000000A /* GalleryViewModel.swift */,
+				B2000000000000000000000B /* Models.swift */,
+				B2000000000000000000000C /* AppTheme.swift */,
+				B2000000000000000000000D /* ByteFormatting.swift */,
+				B2000000000000000000000F /* DuplicateModels.swift */,
+				B20000000000000000000010 /* DuplicateScanner.swift */,
+				B20000000000000000000011 /* DuplicateFinderViewModel.swift */,
+				B20000000000000000000012 /* DuplicatesViews.swift */,
+				B20000000000000000000013 /* DeletionSummaryView.swift */,
+				B2000000000000000000000E /* Assets.xcassets */,
+			);
+			path = CleanGallery;
+			sourceTree = "<group>";
+		};
+		B50000000000000000000003 /* Products */ = {
+			isa = PBXGroup;
+			children = (
+				B30000000000000000000001 /* CleanGallery.app */,
+			);
+			name = Products;
+			sourceTree = "<group>";
+		};
+/* End PBXGroup section */
+
+/* Begin PBXNativeTarget section */
+		B60000000000000000000001 /* CleanGallery */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = B90000000000000000000003 /* Build configuration list for PBXNativeTarget "CleanGallery" */;
+			buildPhases = (
+				B70000000000000000000001 /* Sources */,
+				B40000000000000000000001 /* Frameworks */,
+				B80000000000000000000001 /* Resources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			name = CleanGallery;
+			productName = CleanGallery;
+			productReference = B30000000000000000000001 /* CleanGallery.app */;
+			productType = "com.apple.product-type.application";
+		};
+/* End PBXNativeTarget section */
+
+/* Begin PBXProject section */
+		BA0000000000000000000001 /* Project object */ = {
+			isa = PBXProject;
+			attributes = {
+				BuildIndependentTargetsInParallel = 1;
+				LastSwiftUpdateCheck = 1500;
+				LastUpgradeCheck = 1500;
+				TargetAttributes = {
+					B60000000000000000000001 = {
+						CreatedOnToolsVersion = 15.0;
+					};
+				};
+			};
+			buildConfigurationList = B90000000000000000000001 /* Build configuration list for PBXProject "CleanGallery" */;
+			compatibilityVersion = "Xcode 14.0";
+			developmentRegion = en;
+			hasScannedForEncodings = 0;
+			knownRegions = (
+				en,
+				Base,
+			);
+			mainGroup = B50000000000000000000001;
+			productRefGroup = B50000000000000000000003 /* Products */;
+			projectDirPath = "";
+			projectRoot = "";
+			targets = (
+				B60000000000000000000001 /* CleanGallery */,
+			);
+		};
+/* End PBXProject section */
+
+/* Begin PBXResourcesBuildPhase section */
+		B80000000000000000000001 /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				B1000000000000000000000E /* Assets.xcassets in Resources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXResourcesBuildPhase section */
+
+/* Begin PBXSourcesBuildPhase section */
+		B70000000000000000000001 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				B10000000000000000000001 /* CleanGalleryApp.swift in Sources */,
+				B10000000000000000000002 /* MainTabView.swift in Sources */,
+				B10000000000000000000003 /* MonthListView.swift in Sources */,
+				B10000000000000000000004 /* MonthCleanFlowView.swift in Sources */,
+				B10000000000000000000005 /* RandomCleanView.swift in Sources */,
+				B10000000000000000000006 /* StatsView.swift in Sources */,
+				B10000000000000000000007 /* SwipeDeckView.swift in Sources */,
+				B10000000000000000000008 /* StagedReviewView.swift in Sources */,
+				B10000000000000000000009 /* AssetThumbnailView.swift in Sources */,
+				B10000000000000000000014 /* PHAssetImageView.swift in Sources */,
+				B1000000000000000000000A /* GalleryViewModel.swift in Sources */,
+				B1000000000000000000000B /* Models.swift in Sources */,
+				B1000000000000000000000C /* AppTheme.swift in Sources */,
+				B1000000000000000000000D /* ByteFormatting.swift in Sources */,
+				B1000000000000000000000F /* DuplicateModels.swift in Sources */,
+				B10000000000000000000010 /* DuplicateScanner.swift in Sources */,
+				B10000000000000000000011 /* DuplicateFinderViewModel.swift in Sources */,
+				B10000000000000000000012 /* DuplicatesViews.swift in Sources */,
+				B10000000000000000000013 /* DeletionSummaryView.swift in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXSourcesBuildPhase section */
+
+/* Begin XCBuildConfiguration section */
+		BC0000000000000000000001 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				CLANG_ENABLE_MODULES = YES;
+				CLANG_ENABLE_OBJC_ARC = YES;
+				DEBUG_INFORMATION_FORMAT = dwarf;
+				ENABLE_TESTABILITY = YES;
+				GCC_DYNAMIC_NO_PIC = NO;
+				IPHONEOS_DEPLOYMENT_TARGET = 17.0;
+				MTL_ENABLE_DEBUG_INFO = INCLUDE_SOURCE;
+				ONLY_ACTIVE_ARCH = YES;
+				SDKROOT = iphoneos;
+				SWIFT_ACTIVE_COMPILATION_CONDITIONS = DEBUG;
+				SWIFT_OPTIMIZATION_LEVEL = "-Onone";
+			};
+			name = Debug;
+		};
+		BC0000000000000000000002 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				CLANG_ENABLE_MODULES = YES;
+				CLANG_ENABLE_OBJC_ARC = YES;
+				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
+				IPHONEOS_DEPLOYMENT_TARGET = 17.0;
+				MTL_ENABLE_DEBUG_INFO = NO;
+				SDKROOT = iphoneos;
+				SWIFT_COMPILATION_MODE = wholemodule;
+			};
+			name = Release;
+		};
+		BC0000000000000000000003 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
+				CODE_SIGN_IDENTITY = "-";
+				"CODE_SIGN_IDENTITY[sdk=iphoneos*]" = "Apple Development";
+				"CODE_SIGN_IDENTITY[sdk=iphonesimulator*]" = "-";
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = 7K5S68U8X6;
+				ENABLE_PREVIEWS = YES;
+				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_KEY_CFBundleDisplayName = Sweep;
+				INFOPLIST_KEY_NSPhotoLibraryUsageDescription = "Sweep needs access to your library to group items by month and help you delete what you do not want.";
+				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
+				INFOPLIST_KEY_UILaunchScreen_Generation = YES;
+				INFOPLIST_KEY_UISupportedInterfaceOrientations = UIInterfaceOrientationPortrait;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+				);
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = com.ihnatieva.Sweep;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SUPPORTED_PLATFORMS = "iphoneos iphonesimulator";
+				SUPPORTS_MACCATALYST = NO;
+				SWIFT_EMIT_LOC_STRINGS = YES;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = 1;
+			};
+			name = Debug;
+		};
+		BC0000000000000000000004 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
+				CODE_SIGN_IDENTITY = "-";
+				"CODE_SIGN_IDENTITY[sdk=iphoneos*]" = "Apple Development";
+				"CODE_SIGN_IDENTITY[sdk=iphonesimulator*]" = "-";
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = 7K5S68U8X6;
+				ENABLE_PREVIEWS = YES;
+				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_KEY_CFBundleDisplayName = Sweep;
+				INFOPLIST_KEY_NSPhotoLibraryUsageDescription = "Sweep needs access to your library to group items by month and help you delete what you do not want.";
+				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
+				INFOPLIST_KEY_UILaunchScreen_Generation = YES;
+				INFOPLIST_KEY_UISupportedInterfaceOrientations = UIInterfaceOrientationPortrait;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+				);
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = com.ihnatieva.Sweep;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SUPPORTED_PLATFORMS = "iphoneos iphonesimulator";
+				SUPPORTS_MACCATALYST = NO;
+				SWIFT_EMIT_LOC_STRINGS = YES;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = 1;
+			};
+			name = Release;
+		};
+/* End XCBuildConfiguration section */
+
+/* Begin XCConfigurationList section */
+		B90000000000000000000001 /* Build configuration list for PBXProject "CleanGallery" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				BC0000000000000000000001 /* Debug */,
+				BC0000000000000000000002 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		B90000000000000000000003 /* Build configuration list for PBXNativeTarget "CleanGallery" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				BC0000000000000000000003 /* Debug */,
+				BC0000000000000000000004 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+/* End XCConfigurationList section */
+	};
+	rootObject = BA0000000000000000000001 /* Project object */;
+}

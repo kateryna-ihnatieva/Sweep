@@ -1,0 +1,390 @@
+import AVFoundation
+import AVKit
+import Photos
+import SwiftUI
+
+private enum SwipeDeckViewMetrics {
+    /// Uses most of the space between the header and bottom actions (GeometryReader).
+    static func cardSize(in container: CGSize) -> CGSize {
+        // GeometryReader can report 0×0 on first layout; avoid zero card (invisible media).
+        let cw = max(1, container.width)
+        let ch = max(1, container.height)
+        let w = max(288, min(cw - 8, 480))
+        let maxH = ch - 8
+        let idealH = max(440, min(w * 1.35, 680))
+        // When geometry height is still 0, use ideal height so the card is visible after layout.
+        let h = maxH > 0 ? min(maxH, idealH) : idealH
+        return CGSize(width: w, height: max(120, h))
+    }
+}
+
+private enum SwipeChoice {
+    case markedDelete(String)
+    case kept(String)
+}
+
+struct SwipeDeckView: View {
+    let assets: [PHAsset]
+    @Binding var stagedIds: Set<String>
+    var onFinished: () -> Void
+
+    @State private var index = 0
+    @State private var history: [SwipeChoice] = []
+    @State private var drag: CGSize = .zero
+    @State private var hintOpacity: Double = 1
+    @State private var didFireFinished = false
+
+    private var current: PHAsset? {
+        guard index < assets.count else { return nil }
+        return assets[index]
+    }
+
+    var body: some View {
+        VStack(spacing: 12) {
+            if let asset = current {
+                progressHeader
+                GeometryReader { geo in
+                    let cardSize = SwipeDeckViewMetrics.cardSize(in: geo.size)
+                    ZStack {
+                        swipeHints
+                            .allowsHitTesting(false)
+                        card(for: asset, cardSize: cardSize)
+                            .offset(drag)
+                            .rotationEffect(.degrees(Double(drag.width / 20)))
+                    }
+                    .frame(width: geo.size.width, height: geo.size.height)
+                    .contentShape(Rectangle())
+                    .simultaneousGesture(
+                        DragGesture(minimumDistance: asset.mediaType == .video ? 28 : 8)
+                            .onChanged { v in
+                                drag = v.translation
+                                hintOpacity = max(0.15, 1 - min(abs(v.translation.width) / 120.0, 1))
+                            }
+                            .onEnded { v in
+                                decide(translation: v.translation.width)
+                            }
+                    )
+                }
+                .frame(maxWidth: .infinity, maxHeight: .infinity)
+                .frame(minHeight: 280)
+
+                HStack(spacing: 16) {
+                    Button(action: { swipeLeftCommit() }) {
+                        labelCircle(system: "trash", color: AppTheme.danger, title: "Delete")
+                    }
+                    .buttonStyle(.plain)
+
+                    Button(action: undo) {
+                        VStack(spacing: 6) {
+                            Image(systemName: "arrow.uturn.backward")
+                                .font(.title3.weight(.semibold))
+                            Text("Undo")
+                                .font(.caption.weight(.medium))
+                        }
+                        .foregroundStyle(AppTheme.textPrimary)
+                        .frame(maxWidth: .infinity)
+                        .padding(.vertical, 14)
+                        .background(
+                            RoundedRectangle(cornerRadius: 14, style: .continuous)
+                                .fill(AppTheme.surfaceElevated)
+                        )
+                        .contentShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
+                    }
+                    .buttonStyle(.plain)
+                    .disabled(history.isEmpty)
+
+                    Button(action: { swipeRightCommit() }) {
+                        labelCircle(system: "checkmark", color: AppTheme.keep, title: "Keep")
+                    }
+                    .buttonStyle(.plain)
+                }
+                .padding(.horizontal, 8)
+                .padding(.bottom, 8)
+            } else {
+                Color.clear
+                    .frame(maxHeight: 240)
+                    .onAppear {
+                        guard !didFireFinished else { return }
+                        didFireFinished = true
+                        onFinished()
+                    }
+            }
+        }
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
+        .padding(.horizontal, 12)
+    }
+
+    private var progressHeader: some View {
+        HStack(alignment: .top, spacing: 12) {
+            VStack(alignment: .leading, spacing: 4) {
+                Text("\(index + 1) / \(assets.count)")
+                    .font(.subheadline.weight(.semibold))
+                    .foregroundStyle(AppTheme.textPrimary)
+                if let a = current, let date = a.creationDate {
+                    Text(date, format: Date.FormatStyle(date: .abbreviated, time: .shortened))
+                        .font(.caption)
+                        .foregroundStyle(AppTheme.textSecondary)
+                } else if current != nil {
+                    Text("No capture date")
+                        .font(.caption)
+                        .foregroundStyle(AppTheme.textSecondary)
+                }
+            }
+            Spacer(minLength: 8)
+            if let c = current, c.mediaType == .video {
+                Text("Video")
+                    .font(.caption.weight(.semibold))
+                    .padding(.horizontal, 10)
+                    .padding(.vertical, 4)
+                    .background(AppTheme.surfaceElevated, in: Capsule())
+                    .foregroundStyle(AppTheme.textSecondary)
+            }
+        }
+    }
+
+    private var swipeHints: some View {
+        HStack {
+            Text("DELETE")
+                .font(.caption.weight(.heavy))
+                .foregroundStyle(AppTheme.danger)
+                .padding(10)
+                .opacity(drag.width < -24 ? 1 : 0.25 * hintOpacity)
+            Spacer()
+            Text("KEEP")
+                .font(.caption.weight(.heavy))
+                .foregroundStyle(AppTheme.keep)
+                .padding(10)
+                .opacity(drag.width > 24 ? 1 : 0.25 * hintOpacity)
+        }
+        .padding(.horizontal, 8)
+    }
+
+    private func card(for asset: PHAsset, cardSize: CGSize) -> some View {
+        let side = max(cardSize.width, cardSize.height)
+        let scale = max(1, UIScreen.main.scale)
+        let px = CGSize(width: side * scale, height: side * scale)
+        let innerRadius = AppTheme.cardCorner - 2
+
+        return ZStack {
+            RoundedRectangle(cornerRadius: AppTheme.cardCorner, style: .continuous)
+                .fill(AppTheme.surface)
+
+            Group {
+                if asset.mediaType == .video {
+                    SwipeCardVideoPreview(asset: asset, targetSide: side)
+                } else {
+                    PHAssetImageView(asset: asset, targetPixelSize: px, contentMode: .scaleAspectFit)
+                }
+            }
+            .frame(maxWidth: .infinity, maxHeight: .infinity)
+            .clipShape(RoundedRectangle(cornerRadius: innerRadius, style: .continuous))
+            .padding(4)
+
+            RoundedRectangle(cornerRadius: AppTheme.cardCorner, style: .continuous)
+                .stroke(AppTheme.border, lineWidth: 1)
+        }
+        .frame(width: cardSize.width, height: cardSize.height)
+        .shadow(color: .black.opacity(0.45), radius: 24, y: 14)
+    }
+
+    private func labelCircle(system: String, color: Color, title: String) -> some View {
+        VStack(spacing: 6) {
+            Image(systemName: system)
+                .font(.title3.weight(.bold))
+                .foregroundStyle(.white)
+                .frame(width: 56, height: 56)
+                .background(Circle().fill(color.opacity(0.92)))
+            Text(title)
+                .font(.caption2.weight(.semibold))
+                .foregroundStyle(AppTheme.textSecondary)
+        }
+        .frame(maxWidth: .infinity)
+    }
+
+    private func decide(translation: CGFloat) {
+        if translation < -90 {
+            swipeLeftCommit()
+        } else if translation > 90 {
+            swipeRightCommit()
+        } else {
+            withAnimation(.spring(response: 0.35, dampingFraction: 0.82)) {
+                drag = .zero
+                hintOpacity = 1
+            }
+        }
+    }
+
+    private func swipeLeftCommit() {
+        guard let asset = current else { return }
+        stagedIds.insert(asset.localIdentifier)
+        history.append(.markedDelete(asset.localIdentifier))
+        advance()
+    }
+
+    private func swipeRightCommit() {
+        guard let asset = current else { return }
+        stagedIds.remove(asset.localIdentifier)
+        history.append(.kept(asset.localIdentifier))
+        advance()
+    }
+
+    private func advance() {
+        withAnimation(.spring(response: 0.38, dampingFraction: 0.85)) {
+            drag = .zero
+            hintOpacity = 1
+            index += 1
+        }
+    }
+
+    private func undo() {
+        guard let last = history.popLast() else { return }
+        index = max(0, index - 1)
+        switch last {
+        case let .markedDelete(id):
+            stagedIds.remove(id)
+        case let .kept(id):
+            break
+        }
+    }
+}
+
+// MARK: - Video preview (swipe card only)
+
+/// Full `AVPlayerViewController` with sound and timeline; deck uses `simultaneousGesture` so scrubber still works.
+private struct SwipeCardVideoPreview: View {
+    let asset: PHAsset
+    let targetSide: CGFloat
+
+    @State private var player: AVPlayer?
+
+    var body: some View {
+        let scale = max(1, UIScreen.main.scale)
+        let px = CGSize(width: max(1, targetSide) * scale, height: max(1, targetSide) * scale)
+        GeometryReader { geo in
+            ZStack {
+                Color.black
+                PHAssetImageView(asset: asset, targetPixelSize: px, contentMode: .scaleAspectFit)
+                    .frame(width: geo.size.width, height: geo.size.height)
+                if let player {
+                    VideoAspectFitPlayer(player: player)
+                        .frame(width: geo.size.width, height: geo.size.height)
+                }
+            }
+            .clipped()
+        }
+        .task(id: asset.localIdentifier) {
+            await startPlayback()
+        }
+        .onDisappear {
+            stopPlayback()
+        }
+    }
+
+    @MainActor
+    private func stopPlayback() {
+        player?.pause()
+        player?.replaceCurrentItem(with: nil)
+        player = nil
+        Self.deactivatePlaybackAudioSessionIfPossible()
+    }
+
+    @MainActor
+    private func startPlayback() async {
+        stopPlayback()
+        Self.configurePlaybackAudioSession()
+        guard let item = await Self.fetchPlayerItem(for: asset) else {
+            Self.deactivatePlaybackAudioSessionIfPossible()
+            return
+        }
+        let p = AVPlayer(playerItem: item)
+        p.isMuted = false
+        p.volume = 1
+        // `AVPlayerViewController` sits above the poster; until the item is ready it is often solid black.
+        await Self.waitUntilReadyOrFailed(item: item)
+        guard item.status != .failed else {
+            Self.deactivatePlaybackAudioSessionIfPossible()
+            return
+        }
+        player = p
+        p.play()
+    }
+
+    @MainActor
+    private static func waitUntilReadyOrFailed(item: AVPlayerItem) async {
+        var ticks = 0
+        while item.status == .unknown, ticks < 400 {
+            try? await Task.sleep(nanoseconds: 25_000_000)
+            ticks += 1
+        }
+    }
+
+    nonisolated private static func fetchPlayerItem(for asset: PHAsset) async -> AVPlayerItem? {
+        await withCheckedContinuation { (cont: CheckedContinuation<AVPlayerItem?, Never>) in
+            let opts = PHVideoRequestOptions()
+            opts.isNetworkAccessAllowed = true
+            opts.deliveryMode = .automatic
+            var done = false
+            let lock = NSLock()
+            PHImageManager.default().requestPlayerItem(forVideo: asset, options: opts) { item, _ in
+                lock.lock()
+                defer { lock.unlock() }
+                guard !done else { return }
+                done = true
+                cont.resume(returning: item)
+            }
+        }
+    }
+
+    /// Video apps use the playback session so clip audio is audible even when the Ring/Silent switch is on.
+    @MainActor
+    private static func configurePlaybackAudioSession() {
+        let session = AVAudioSession.sharedInstance()
+        do {
+            try session.setCategory(.playback, mode: .moviePlayback, options: [.duckOthers])
+            try session.setActive(true)
+        } catch {
+            #if DEBUG
+            print("SwipeCardVideoPreview: AVAudioSession \(error.localizedDescription)")
+            #endif
+        }
+    }
+
+    @MainActor
+    private static func deactivatePlaybackAudioSessionIfPossible() {
+        let session = AVAudioSession.sharedInstance()
+        do {
+            try session.setActive(false, options: [.notifyOthersOnDeactivation])
+        } catch {
+            #if DEBUG
+            print("SwipeCardVideoPreview: AVAudioSession deactivate \(error.localizedDescription)")
+            #endif
+        }
+    }
+}
+
+// MARK: - Letterboxed video (AVPlayerViewController)
+
+private struct VideoAspectFitPlayer: UIViewControllerRepresentable {
+    let player: AVPlayer
+
+    func makeUIViewController(context: Context) -> AVPlayerViewController {
+        let vc = AVPlayerViewController()
+        vc.player = player
+        vc.showsPlaybackControls = true
+        vc.videoGravity = .resizeAspect
+        vc.view.backgroundColor = .clear
+        return vc
+    }
+
+    func updateUIViewController(_ vc: AVPlayerViewController, context: Context) {
+        if vc.player !== player {
+            vc.player = player
+        }
+    }
+
+    static func dismantleUIViewController(_ vc: AVPlayerViewController, coordinator: ()) {
+        vc.player?.pause()
+        vc.player = nil
+    }
+}
+
