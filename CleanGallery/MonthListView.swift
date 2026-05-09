@@ -6,6 +6,7 @@ struct MonthListView: View {
     @State private var path: [MonthBucket] = []
     @State private var showRandom = false
     @State private var showDuplicatesSheet = false
+    @State private var pendingReopen: MonthBucket?
 
     var body: some View {
         NavigationStack(path: $path) {
@@ -53,6 +54,30 @@ struct MonthListView: View {
                     .environmentObject(gallery)
                     .environmentObject(duplicateFinder)
             }
+            .confirmationDialog(
+                pendingReopen.map { "“\($0.title)” is already reviewed" } ?? "Open this month?",
+                isPresented: Binding(
+                    get: { pendingReopen != nil },
+                    set: { if !$0 { pendingReopen = nil } }
+                ),
+                titleVisibility: .visible,
+                presenting: pendingReopen
+            ) { month in
+                Button("Open anyway") {
+                    let target = month
+                    pendingReopen = nil
+                    path = [target]
+                }
+                Button("Mark not done", role: .destructive) {
+                    gallery.markMonthIncomplete(month.id)
+                    pendingReopen = nil
+                }
+                Button("Cancel", role: .cancel) {
+                    pendingReopen = nil
+                }
+            } message: { _ in
+                Text("You’ve already swiped through this month. Open it again only if you want to revisit it.")
+            }
             .task {
                 gallery.refreshAuthorization()
                 if gallery.authorization == .authorized || gallery.authorization == .limited {
@@ -62,6 +87,14 @@ struct MonthListView: View {
         }
     }
 
+    private var pendingMonths: [MonthBucket] {
+        gallery.months.filter { !gallery.completedMonthIds.contains($0.id) }
+    }
+
+    private var reviewedMonths: [MonthBucket] {
+        gallery.months.filter { gallery.completedMonthIds.contains($0.id) }
+    }
+
     private var listContent: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: 16) {
@@ -69,30 +102,32 @@ struct MonthListView: View {
                     showDuplicatesSheet = true
                 }
 
-                LazyVStack(spacing: 10) {
-                    if gallery.isLoading && gallery.months.isEmpty {
-                        ProgressView("Loading…")
-                            .tint(AppTheme.accent)
-                            .padding(40)
-                    } else if let err = gallery.loadError {
-                        Text(err)
-                            .foregroundStyle(AppTheme.danger)
-                            .padding()
-                    }
+                if gallery.isLoading && gallery.months.isEmpty {
+                    ProgressView("Loading…")
+                        .tint(AppTheme.accent)
+                        .frame(maxWidth: .infinity)
+                        .padding(40)
+                } else if let err = gallery.loadError {
+                    Text(err)
+                        .foregroundStyle(AppTheme.danger)
+                        .padding()
+                }
 
-                    ForEach(gallery.months) { month in
-                        Button {
-                            path = [month]
-                        } label: {
-                            monthRow(month)
+                if !pendingMonths.isEmpty {
+                    sectionHeader("To review", count: pendingMonths.count)
+                    LazyVStack(spacing: 10) {
+                        ForEach(pendingMonths) { month in
+                            monthButton(month, isReviewed: false)
                         }
-                        .buttonStyle(.plain)
-                        .contextMenu {
-                            if gallery.completedMonthIds.contains(month.id) {
-                                Button("Mark not done", systemImage: "arrow.uturn.backward") {
-                                    gallery.markMonthIncomplete(month.id)
-                                }
-                            }
+                    }
+                }
+
+                if !reviewedMonths.isEmpty {
+                    sectionHeader("Already reviewed", count: reviewedMonths.count)
+                        .padding(.top, pendingMonths.isEmpty ? 0 : 8)
+                    LazyVStack(spacing: 10) {
+                        ForEach(reviewedMonths) { month in
+                            monthButton(month, isReviewed: true)
                         }
                     }
                 }
@@ -106,35 +141,93 @@ struct MonthListView: View {
         .background(AppTheme.background)
     }
 
-    private func monthRow(_ month: MonthBucket) -> some View {
+    private func sectionHeader(_ title: String, count: Int) -> some View {
+        HStack(spacing: 8) {
+            Text(title.uppercased())
+                .font(.caption.weight(.bold))
+                .tracking(0.6)
+                .foregroundStyle(AppTheme.textSecondary)
+            Text("\(count)")
+                .font(.caption2.weight(.semibold))
+                .foregroundStyle(AppTheme.textSecondary)
+                .padding(.horizontal, 8)
+                .padding(.vertical, 2)
+                .background(AppTheme.surfaceElevated, in: Capsule())
+            Spacer()
+        }
+        .padding(.horizontal, 4)
+    }
+
+    private func monthButton(_ month: MonthBucket, isReviewed: Bool) -> some View {
+        Button {
+            if isReviewed {
+                pendingReopen = month
+            } else {
+                path = [month]
+            }
+        } label: {
+            monthRow(month, isReviewed: isReviewed)
+        }
+        .buttonStyle(.plain)
+        .contextMenu {
+            if isReviewed {
+                Button("Mark not done", systemImage: "arrow.uturn.backward") {
+                    gallery.markMonthIncomplete(month.id)
+                }
+                Button("Open anyway", systemImage: "chevron.right") {
+                    path = [month]
+                }
+            } else {
+                Button("Mark as reviewed", systemImage: "checkmark.seal") {
+                    gallery.markMonthCompleted(month.id)
+                }
+            }
+        }
+    }
+
+    private func monthRow(_ month: MonthBucket, isReviewed: Bool) -> some View {
         HStack(spacing: 14) {
             VStack(alignment: .leading, spacing: 6) {
                 Text(month.title)
                     .font(.headline)
-                    .foregroundStyle(AppTheme.textPrimary)
+                    .foregroundStyle(isReviewed ? AppTheme.textSecondary : AppTheme.textPrimary)
+                    .strikethrough(isReviewed, color: AppTheme.textSecondary.opacity(0.6))
                 Text("\(month.photoCount) photos · \(month.videoCount) videos")
                     .font(.subheadline)
-                    .foregroundStyle(AppTheme.textSecondary)
+                    .foregroundStyle(AppTheme.textSecondary.opacity(isReviewed ? 0.7 : 1))
             }
             Spacer()
-            if gallery.completedMonthIds.contains(month.id) {
-                Image(systemName: "checkmark.seal.fill")
-                    .foregroundStyle(AppTheme.accent)
-                    .font(.title3)
+            if isReviewed {
+                reviewedBadge
             }
             Image(systemName: "chevron.right")
                 .font(.footnote.weight(.semibold))
-                .foregroundStyle(AppTheme.textSecondary.opacity(0.6))
+                .foregroundStyle(AppTheme.textSecondary.opacity(isReviewed ? 0.35 : 0.6))
         }
         .padding(16)
         .background(
             RoundedRectangle(cornerRadius: AppTheme.listRowCorner, style: .continuous)
-                .fill(AppTheme.surface)
+                .fill(isReviewed ? AppTheme.surface.opacity(0.55) : AppTheme.surface)
                 .overlay {
                     RoundedRectangle(cornerRadius: AppTheme.listRowCorner, style: .continuous)
-                        .stroke(AppTheme.border, lineWidth: 1)
+                        .stroke(isReviewed ? AppTheme.border.opacity(0.5) : AppTheme.border, lineWidth: 1)
                 }
         )
+        .opacity(isReviewed ? 0.78 : 1)
+    }
+
+    private var reviewedBadge: some View {
+        HStack(spacing: 4) {
+            Image(systemName: "checkmark.seal.fill")
+                .font(.caption.weight(.semibold))
+            Text("Reviewed")
+                .font(.caption2.weight(.bold))
+                .tracking(0.4)
+        }
+        .foregroundStyle(AppTheme.accent)
+        .padding(.horizontal, 8)
+        .padding(.vertical, 4)
+        .background(AppTheme.accent.opacity(0.16), in: Capsule())
     }
 
     private var requestAccessView: some View {

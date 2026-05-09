@@ -24,7 +24,12 @@ struct MonthCleanFlowView: View {
                 SwipeDeckView(
                     assets: month.assets,
                     stagedIds: $staged,
-                    onFinished: { phase = .review }
+                    onFinished: {
+                        // Reaching the end of the deck means the user has seen every item this month.
+                        // Mark it as reviewed automatically so the list can flag it as "done".
+                        gallery.markMonthCompleted(month.id)
+                        phase = .review
+                    }
                 )
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
                 .navigationBarBackButtonHidden(false)
