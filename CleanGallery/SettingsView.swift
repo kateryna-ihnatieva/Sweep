@@ -6,6 +6,7 @@ struct SettingsView: View {
 
     @State private var resetStatsConfirm = false
     @State private var resetMonthsConfirm = false
+    @State private var resetSeenConfirm = false
 
     var body: some View {
         NavigationStack {
@@ -44,6 +45,19 @@ struct SettingsView: View {
                 Button("Cancel", role: .cancel) {}
             } message: {
                 Text("All months become “not reviewed” again. Your library is not touched.")
+            }
+            .confirmationDialog(
+                "Reset viewed photos?",
+                isPresented: $resetSeenConfirm,
+                titleVisibility: .visible
+            ) {
+                Button("Reset viewed", role: .destructive) {
+                    gallery.resetSeenAssets()
+                    Haptics.warn()
+                }
+                Button("Cancel", role: .cancel) {}
+            } message: {
+                Text("Sweep will forget which items you've already swiped, so Random can show them again.")
             }
         }
     }
@@ -167,6 +181,21 @@ struct SettingsView: View {
 
     private var resetSection: some View {
         Section {
+            HStack {
+                Label("Viewed photos", systemImage: "eye.fill")
+                Spacer()
+                Text("\(gallery.seenAssetIds.count)")
+                    .foregroundStyle(.secondary)
+                    .monospacedDigit()
+            }
+
+            Button(role: .destructive) {
+                resetSeenConfirm = true
+            } label: {
+                Label("Reset viewed photos", systemImage: "eye.slash")
+            }
+            .disabled(gallery.seenAssetIds.isEmpty)
+
             Button(role: .destructive) {
                 resetStatsConfirm = true
             } label: {
@@ -181,7 +210,7 @@ struct SettingsView: View {
         } header: {
             Text("Reset")
         } footer: {
-            Text("Neither action touches your photo library. Items deleted earlier remain in Recently Deleted as Photos manages them.")
+            Text("Resetting viewed photos lets the same items re-appear in Random. None of these actions touch your photo library — items already deleted stay in Recently Deleted as Photos manages them.")
         }
     }
 

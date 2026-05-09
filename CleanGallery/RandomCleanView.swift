@@ -10,6 +10,7 @@ struct RandomCleanView: View {
     @State private var staged: Set<String> = []
     @State private var lastResult = DeletionCommitResult.empty
     @State private var errorMessage: String?
+    @State private var isRecyclingSeen = false
 
     private enum Phase {
         case swipe
@@ -29,12 +30,17 @@ struct RandomCleanView: View {
                     )
                     .foregroundStyle(AppTheme.textSecondary)
                 } else {
-                    SwipeDeckView(
-                        assets: assets,
-                        stagedIds: $staged,
-                        onFinished: { phase = .review }
-                    )
-                    .frame(maxWidth: .infinity, maxHeight: .infinity)
+                    VStack(spacing: 0) {
+                        if isRecyclingSeen {
+                            recyclingBanner
+                        }
+                        SwipeDeckView(
+                            assets: assets,
+                            stagedIds: $staged,
+                            onFinished: { phase = .review }
+                        )
+                        .frame(maxWidth: .infinity, maxHeight: .infinity)
+                    }
                 }
 
             case .review:
@@ -58,7 +64,9 @@ struct RandomCleanView: View {
         .interactiveDismissDisabled(phase == .swipe && !assets.isEmpty)
         .onAppear {
             if assets.isEmpty {
-                assets = gallery.randomSample(count: 10)
+                let batch = gallery.nextRandomBatch(count: 10)
+                assets = batch.assets
+                isRecyclingSeen = batch.isRecyclingSeen
             }
         }
         .alert("Error", isPresented: Binding(
@@ -69,6 +77,28 @@ struct RandomCleanView: View {
         } message: {
             Text(errorMessage ?? "")
         }
+    }
+
+    /// Shown above the deck when Sweep had to top up the random batch with
+    /// previously swiped items because the unseen pool is exhausted.
+    private var recyclingBanner: some View {
+        HStack(alignment: .top, spacing: 10) {
+            Image(systemName: "arrow.triangle.2.circlepath")
+                .symbolRenderingMode(.hierarchical)
+                .foregroundStyle(AppTheme.accent)
+                .font(.callout.weight(.semibold))
+            VStack(alignment: .leading, spacing: 2) {
+                Text("You've seen everything")
+                    .font(.subheadline.weight(.semibold))
+                Text("Showing items you've already swiped before. Reset viewed photos in Settings to start fresh.")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+            }
+            Spacer(minLength: 0)
+        }
+        .padding(.horizontal, 16)
+        .padding(.vertical, 10)
+        .background(AppTheme.accent.opacity(0.12))
     }
 
     private var resultScreen: some View {

@@ -29,6 +29,7 @@ struct SwipeDeckView: View {
     var onFinished: () -> Void
 
     @EnvironmentObject private var settings: AppSettings
+    @EnvironmentObject private var gallery: GalleryViewModel
     @StateObject private var videoPrefetcher = VideoPrefetcher()
 
     @State private var index = 0
@@ -313,6 +314,7 @@ struct SwipeDeckView: View {
         Haptics.swipeDelete()
         stagedIds.insert(asset.localIdentifier)
         history.append(.markedDelete(asset.localIdentifier))
+        gallery.markAssetSeen(asset.localIdentifier)
         advance()
     }
 
@@ -321,6 +323,7 @@ struct SwipeDeckView: View {
         Haptics.swipeKeep()
         stagedIds.remove(asset.localIdentifier)
         history.append(.kept(asset.localIdentifier))
+        gallery.markAssetSeen(asset.localIdentifier)
         advance()
     }
 

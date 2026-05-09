@@ -20,6 +20,11 @@ final class GalleryViewModel: ObservableObject {
     /// Persisted as JSON keyed by month id.
     private var completionSnapshots: [String: MonthCompletionSnapshot] = [:]
 
+    /// `localIdentifier`s of assets the user has already swiped at least once in
+    /// any flow (deck, random, duplicates). Used by `randomSample(count:)` to
+    /// avoid showing the same items repeatedly. Persisted across launches.
+    @Published private(set) var seenAssetIds: Set<String> = []
+
     @Published var totalDeletedItems: Int {
         didSet { UserDefaults.standard.set(totalDeletedItems, forKey: Keys.totalDeletedItems) }
     }
@@ -42,6 +47,7 @@ final class GalleryViewModel: ObservableObject {
     private enum Keys {
         static let completedMonths = "cg.completedMonthIds"
         static let completionSnapshots = "cg.completionSnapshots"
+        static let seenAssetIds = "cg.seenAssetIds"
         static let totalDeletedItems = "cg.totalDeletedItems"
         static let totalDeletedPhotos = "cg.totalDeletedPhotos"
         static let totalDeletedVideos = "cg.totalDeletedVideos"
@@ -57,6 +63,9 @@ final class GalleryViewModel: ObservableObject {
         if let data = UserDefaults.standard.data(forKey: Keys.completionSnapshots),
            let decoded = try? JSONDecoder().decode([String: MonthCompletionSnapshot].self, from: data) {
             completionSnapshots = decoded
+        }
+        if let savedSeen = UserDefaults.standard.array(forKey: Keys.seenAssetIds) as? [String] {
+            seenAssetIds = Set(savedSeen)
         }
         totalDeletedItems = UserDefaults.standard.integer(forKey: Keys.totalDeletedItems)
         totalDeletedPhotos = UserDefaults.standard.integer(forKey: Keys.totalDeletedPhotos)
@@ -92,6 +101,7 @@ final class GalleryViewModel: ObservableObject {
         case let .success(buckets):
             months = buckets
             reconcileCompletionWithLibrary()
+            pruneSeenAssetsAgainstLibrary()
         case let .failure(err):
             loadError = err.localizedDescription
         }
@@ -196,6 +206,10 @@ final class GalleryViewModel: ObservableObject {
         totalDeletedPhotos += photos
         totalDeletedVideos += videos
         totalFreedBytes += bytes
+        // Deleted assets disappear from the library and never need to be filtered
+        // out of future random samples; drop them from the seen-set so it doesn't
+        // accumulate stale ids forever.
+        forgetSeenAssets(ids: localIds)
         await reloadMonths()
         return DeletionCommitResult(freedBytes: bytes, photoCount: photos, videoCount: videos)
     }
@@ -288,10 +302,98 @@ final class GalleryViewModel: ObservableObject {
         return MonthCompletionSnapshot(assetCount: count, latestCreationTimestamp: latest)
     }
 
-    func randomSample(count: Int = 10) -> [PHAsset] {
+    /// Result of `nextRandomBatch` — knows whether we had to recycle previously
+    /// seen items because the library is fully reviewed.
+    struct RandomBatch {
+        let assets: [PHAsset]
+        /// True when the user has already swiped through every asset in their library
+        /// at least once, and the batch is padded with previously seen items.
+        let isRecyclingSeen: Bool
+    }
+
+    /// Random pick that prefers items the user has *not* swiped before. When the
+    /// pool of unseen items is smaller than `count`, the batch is filled from
+    /// previously seen items so the user still has something to act on.
+    func nextRandomBatch(count: Int = 10) -> RandomBatch {
         let all = months.flatMap(\.assets)
-        guard !all.isEmpty else { return [] }
-        return Array(all.shuffled().prefix(count))
+        guard !all.isEmpty else { return RandomBatch(assets: [], isRecyclingSeen: false) }
+
+        let unseen = all.filter { !seenAssetIds.contains($0.localIdentifier) }
+        if unseen.count >= count {
+            return RandomBatch(
+                assets: Array(unseen.shuffled().prefix(count)),
+                isRecyclingSeen: false
+            )
+        }
+
+        var batch = unseen.shuffled()
+        let needed = count - batch.count
+        if needed > 0 {
+            let seen = all.filter { seenAssetIds.contains($0.localIdentifier) }
+            batch.append(contentsOf: seen.shuffled().prefix(needed))
+        }
+        return RandomBatch(
+            assets: batch,
+            isRecyclingSeen: !batch.isEmpty && batch.count > unseen.count
+        )
+    }
+
+    /// Legacy single-pick API kept for callers that just want a quick handful
+    /// without awareness of the seen-set. Internally goes through
+    /// `nextRandomBatch` so behavior is consistent.
+    func randomSample(count: Int = 10) -> [PHAsset] {
+        nextRandomBatch(count: count).assets
+    }
+
+    // MARK: - Seen-asset tracking
+
+    /// Mark a single asset as seen. Idempotent and persists immediately so the
+    /// information survives a force-quit mid-deck.
+    func markAssetSeen(_ id: String) {
+        guard !id.isEmpty, !seenAssetIds.contains(id) else { return }
+        seenAssetIds.insert(id)
+        persistSeenAssets()
+    }
+
+    /// Bulk variant for batched updates (e.g. on deck completion).
+    func markAssetsSeen(_ ids: [String]) {
+        guard !ids.isEmpty else { return }
+        let new = ids.filter { !seenAssetIds.contains($0) }
+        guard !new.isEmpty else { return }
+        for id in new { seenAssetIds.insert(id) }
+        persistSeenAssets()
+    }
+
+    /// User-facing reset (Settings → Reset viewed photos).
+    func resetSeenAssets() {
+        guard !seenAssetIds.isEmpty else { return }
+        seenAssetIds.removeAll()
+        persistSeenAssets()
+    }
+
+    /// Drop ids from the seen-set without touching anything else. Called from
+    /// `commitDeletion` because removed assets can never appear in a sample again.
+    private func forgetSeenAssets(ids: [String]) {
+        let removable = ids.filter { seenAssetIds.contains($0) }
+        guard !removable.isEmpty else { return }
+        for id in removable { seenAssetIds.remove(id) }
+        persistSeenAssets()
+    }
+
+    /// Garbage-collect ids that no longer correspond to any asset in the library
+    /// (e.g. user deleted them in the Photos app outside Sweep). Called after
+    /// every successful library reload.
+    private func pruneSeenAssetsAgainstLibrary() {
+        guard !seenAssetIds.isEmpty else { return }
+        let alive = Set(months.flatMap { $0.assets.map(\.localIdentifier) })
+        let pruned = seenAssetIds.intersection(alive)
+        guard pruned.count != seenAssetIds.count else { return }
+        seenAssetIds = pruned
+        persistSeenAssets()
+    }
+
+    private func persistSeenAssets() {
+        UserDefaults.standard.set(Array(seenAssetIds), forKey: Keys.seenAssetIds)
     }
 
     func startCaching(assets: [PHAsset], targetSize: CGSize) {
