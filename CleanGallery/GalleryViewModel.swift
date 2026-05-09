@@ -15,6 +15,11 @@ final class GalleryViewModel: ObservableObject {
         didSet { persistCompletedMonths() }
     }
 
+    /// Snapshot of a month at the moment the user marked it "reviewed".
+    /// We store it so the next library reload can detect new media and auto-unmark.
+    /// Persisted as JSON keyed by month id.
+    private var completionSnapshots: [String: MonthCompletionSnapshot] = [:]
+
     @Published var totalDeletedItems: Int {
         didSet { UserDefaults.standard.set(totalDeletedItems, forKey: Keys.totalDeletedItems) }
     }
@@ -36,6 +41,7 @@ final class GalleryViewModel: ObservableObject {
 
     private enum Keys {
         static let completedMonths = "cg.completedMonthIds"
+        static let completionSnapshots = "cg.completionSnapshots"
         static let totalDeletedItems = "cg.totalDeletedItems"
         static let totalDeletedPhotos = "cg.totalDeletedPhotos"
         static let totalDeletedVideos = "cg.totalDeletedVideos"
@@ -47,6 +53,10 @@ final class GalleryViewModel: ObservableObject {
             completedMonthIds = Set(saved)
         } else {
             completedMonthIds = []
+        }
+        if let data = UserDefaults.standard.data(forKey: Keys.completionSnapshots),
+           let decoded = try? JSONDecoder().decode([String: MonthCompletionSnapshot].self, from: data) {
+            completionSnapshots = decoded
         }
         totalDeletedItems = UserDefaults.standard.integer(forKey: Keys.totalDeletedItems)
         totalDeletedPhotos = UserDefaults.standard.integer(forKey: Keys.totalDeletedPhotos)
@@ -81,6 +91,7 @@ final class GalleryViewModel: ObservableObject {
         switch result {
         case let .success(buckets):
             months = buckets
+            reconcileCompletionWithLibrary()
         case let .failure(err):
             loadError = err.localizedDescription
         }
@@ -191,10 +202,17 @@ final class GalleryViewModel: ObservableObject {
 
     func markMonthCompleted(_ monthId: String) {
         completedMonthIds.insert(monthId)
+        if let bucket = months.first(where: { $0.id == monthId }) {
+            completionSnapshots[monthId] = Self.snapshot(of: bucket)
+            persistCompletionSnapshots()
+        }
     }
 
     func markMonthIncomplete(_ monthId: String) {
         completedMonthIds.remove(monthId)
+        if completionSnapshots.removeValue(forKey: monthId) != nil {
+            persistCompletionSnapshots()
+        }
     }
 
     /// Wipe lifetime stats. The library and "completed months" set are untouched.
@@ -209,10 +227,65 @@ final class GalleryViewModel: ObservableObject {
     /// The library (and any actually deleted assets) is untouched.
     func resetMonthCompletion() {
         completedMonthIds.removeAll()
+        if !completionSnapshots.isEmpty {
+            completionSnapshots.removeAll()
+            persistCompletionSnapshots()
+        }
     }
 
     private func persistCompletedMonths() {
         UserDefaults.standard.set(Array(completedMonthIds), forKey: Keys.completedMonths)
+    }
+
+    private func persistCompletionSnapshots() {
+        if let data = try? JSONEncoder().encode(completionSnapshots) {
+            UserDefaults.standard.set(data, forKey: Keys.completionSnapshots)
+        }
+    }
+
+    /// After a fresh library snapshot, walk completed months and:
+    ///   * auto-unmark any month whose asset count grew or that received
+    ///     a newer-dated asset since the user marked it reviewed,
+    ///   * back-fill snapshots for months that were marked reviewed before
+    ///     this feature shipped (legacy users) so the next import triggers
+    ///     auto-unmark properly.
+    private func reconcileCompletionWithLibrary() {
+        guard !completedMonthIds.isEmpty else { return }
+        var snapshotsChanged = false
+        var idsToUnmark: Set<String> = []
+
+        for month in months where completedMonthIds.contains(month.id) {
+            let current = Self.snapshot(of: month)
+            if let previous = completionSnapshots[month.id] {
+                if current.assetCount > previous.assetCount
+                    || current.latestCreationTimestamp > previous.latestCreationTimestamp {
+                    idsToUnmark.insert(month.id)
+                }
+            } else {
+                completionSnapshots[month.id] = current
+                snapshotsChanged = true
+            }
+        }
+
+        if !idsToUnmark.isEmpty {
+            completedMonthIds.subtract(idsToUnmark)
+            for id in idsToUnmark {
+                completionSnapshots.removeValue(forKey: id)
+            }
+            snapshotsChanged = true
+        }
+
+        if snapshotsChanged {
+            persistCompletionSnapshots()
+        }
+    }
+
+    private static func snapshot(of bucket: MonthBucket) -> MonthCompletionSnapshot {
+        let count = bucket.assets.count
+        let latest = bucket.assets
+            .compactMap { $0.creationDate?.timeIntervalSince1970 }
+            .max() ?? 0
+        return MonthCompletionSnapshot(assetCount: count, latestCreationTimestamp: latest)
     }
 
     func randomSample(count: Int = 10) -> [PHAsset] {

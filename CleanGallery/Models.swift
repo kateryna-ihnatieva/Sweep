@@ -31,3 +31,13 @@ extension MonthBucket: Hashable {
         lhs.id == rhs.id
     }
 }
+
+/// Snapshot of a month captured at the moment the user marked it "reviewed".
+/// Used by `GalleryViewModel.reconcileCompletionWithLibrary` to detect when
+/// new media has appeared in an already-reviewed month and auto-unmark it.
+struct MonthCompletionSnapshot: Codable, Equatable {
+    var assetCount: Int
+    /// Latest `creationDate` of any asset in the bucket as a Unix timestamp.
+    /// Stored as TimeInterval so the JSON payload stays portable.
+    var latestCreationTimestamp: TimeInterval
+}
