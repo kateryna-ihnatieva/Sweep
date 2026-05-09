@@ -197,6 +197,20 @@ final class GalleryViewModel: ObservableObject {
         completedMonthIds.remove(monthId)
     }
 
+    /// Wipe lifetime stats. The library and "completed months" set are untouched.
+    func resetStats() {
+        totalDeletedItems = 0
+        totalDeletedPhotos = 0
+        totalDeletedVideos = 0
+        totalFreedBytes = 0
+    }
+
+    /// Forget which months the user already swiped through.
+    /// The library (and any actually deleted assets) is untouched.
+    func resetMonthCompletion() {
+        completedMonthIds.removeAll()
+    }
+
     private func persistCompletedMonths() {
         UserDefaults.standard.set(Array(completedMonthIds), forKey: Keys.completedMonths)
     }

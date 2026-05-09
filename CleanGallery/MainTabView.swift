@@ -12,6 +12,11 @@ struct MainTabView: View {
                 .tabItem {
                     Label("Stats", systemImage: "chart.bar.fill")
                 }
+
+            SettingsView()
+                .tabItem {
+                    Label("Settings", systemImage: "gearshape.fill")
+                }
         }
     }
 }

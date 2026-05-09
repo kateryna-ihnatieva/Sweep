@@ -86,9 +86,11 @@ struct MonthCleanFlowView: View {
         }
         do {
             lastResult = try await gallery.commitDeletion(for: ids)
+            Haptics.deleteSucceeded()
             staged.removeAll()
             phase = .result
         } catch {
+            Haptics.errorOccurred()
             errorMessage = error.localizedDescription
         }
     }

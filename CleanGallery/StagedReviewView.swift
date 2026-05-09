@@ -8,6 +8,12 @@ struct StagedReviewView: View {
     var onConfirmDelete: () -> Void
     var onExitWithoutDeleting: () -> Void
 
+    @EnvironmentObject private var gallery: GalleryViewModel
+    @EnvironmentObject private var settings: AppSettings
+
+    @State private var bigConfirmShown = false
+    @State private var pendingBytes: Int64 = 0
+
     private var stagedAssets: [PHAsset] {
         let map = Dictionary(uniqueKeysWithValues: allAssetsInScope.map { ($0.localIdentifier, $0) })
         return stagedIds.compactMap { map[$0] }
@@ -35,6 +41,18 @@ struct StagedReviewView: View {
         .safeAreaInset(edge: .bottom) {
             actionBar
                 .background(.bar)
+        }
+        .confirmationDialog(
+            "Delete \(stagedAssets.count) item\(stagedAssets.count == 1 ? "" : "s")?",
+            isPresented: $bigConfirmShown,
+            titleVisibility: .visible
+        ) {
+            Button("Delete", role: .destructive) {
+                onConfirmDelete()
+            }
+            Button("Cancel", role: .cancel) {}
+        } message: {
+            Text(bigDeleteMessage)
         }
     }
 
@@ -75,6 +93,7 @@ struct StagedReviewView: View {
 
                     Button {
                         stagedIds.remove(asset.localIdentifier)
+                        Haptics.selectionChanged()
                     } label: {
                         Image(systemName: "xmark.circle.fill")
                             .symbolRenderingMode(.palette)
@@ -93,7 +112,7 @@ struct StagedReviewView: View {
         VStack(spacing: 10) {
             if !stagedAssets.isEmpty {
                 Button(role: .destructive) {
-                    onConfirmDelete()
+                    Task { await maybeConfirmDelete() }
                 } label: {
                     Label("Delete \(stagedAssets.count) item\(stagedAssets.count == 1 ? "" : "s")",
                           systemImage: "trash.fill")
@@ -116,5 +135,48 @@ struct StagedReviewView: View {
         .padding(.horizontal, 16)
         .padding(.top, 12)
         .padding(.bottom, 14)
+    }
+
+    /// Centralised guard before sending items to Photos. When the user enabled the
+    /// "Confirm large deletions" safety net, we look up the staged size on a background
+    /// task and add an extra confirmation if either threshold is hit.
+    @MainActor
+    private func maybeConfirmDelete() async {
+        let count = stagedAssets.count
+        guard count > 0 else {
+            onConfirmDelete()
+            return
+        }
+        guard settings.bigDeleteConfirmEnabled else {
+            onConfirmDelete()
+            return
+        }
+
+        if count >= settings.bigDeleteItemsThreshold {
+            pendingBytes = await gallery.estimatedBytes(for: stagedAssets.map(\.localIdentifier))
+            Haptics.warn()
+            bigConfirmShown = true
+            return
+        }
+
+        let bytes = await gallery.estimatedBytes(for: stagedAssets.map(\.localIdentifier))
+        pendingBytes = bytes
+        let mbThresholdBytes = Int64(settings.bigDeleteMegabytesThreshold) * 1_048_576
+        if bytes >= mbThresholdBytes {
+            Haptics.warn()
+            bigConfirmShown = true
+            return
+        }
+
+        onConfirmDelete()
+    }
+
+    private var bigDeleteMessage: String {
+        let count = stagedAssets.count
+        let suffix = count == 1 ? "" : "s"
+        if pendingBytes > 0 {
+            return "Sweep will move \(count) item\(suffix) (~\(pendingBytes.formattedByteCount)) to Recently Deleted. You can recover them in the Photos app for the period Apple allows."
+        }
+        return "Sweep will move \(count) item\(suffix) to Recently Deleted. You can recover them in the Photos app for the period Apple allows."
     }
 }

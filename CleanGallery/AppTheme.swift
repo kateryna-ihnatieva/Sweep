@@ -13,7 +13,10 @@ enum AppTheme {
     static let textSecondary = Color.secondary
     static let textTertiary = Color(uiColor: .tertiaryLabel)
 
-    static let accent = Color.accentColor
+    /// Brand accent. Uses `AppSettings.accentChoice` so a Settings change updates
+    /// the entire UI on the next render. Views that read this should observe
+    /// `AppSettings` (e.g. via `@EnvironmentObject`) so SwiftUI re-renders them.
+    static var accent: Color { AppSettings.shared.accentColor }
     static let danger = Color.red
     static let keep = Color.green
 

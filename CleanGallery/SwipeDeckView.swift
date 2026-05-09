@@ -28,6 +28,9 @@ struct SwipeDeckView: View {
     @Binding var stagedIds: Set<String>
     var onFinished: () -> Void
 
+    @EnvironmentObject private var settings: AppSettings
+    @StateObject private var videoPrefetcher = VideoPrefetcher()
+
     @State private var index = 0
     @State private var history: [SwipeChoice] = []
     @State private var drag: CGSize = .zero
@@ -112,6 +115,17 @@ struct SwipeDeckView: View {
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
         .padding(.horizontal, 12)
+        .onAppear {
+            Haptics.prepare()
+            prefetchUpcomingVideos()
+            // Also prime the very first card if it's a video.
+            if assets.indices.contains(0), assets[0].mediaType == .video {
+                videoPrefetcher.prefetch(asset: assets[0])
+            }
+        }
+        .onDisappear {
+            videoPrefetcher.reset()
+        }
     }
 
     private var progressHeader: some View {
@@ -253,7 +267,12 @@ struct SwipeDeckView: View {
 
             Group {
                 if asset.mediaType == .video {
-                    SwipeCardVideoPreview(asset: asset, targetSide: side)
+                    SwipeCardVideoPreview(
+                        asset: asset,
+                        targetSide: side,
+                        prefetcher: videoPrefetcher,
+                        autoplay: settings.videoAutoplayEnabled
+                    )
                 } else {
                     ZoomablePhotoView(
                         asset: asset,
@@ -291,6 +310,7 @@ struct SwipeDeckView: View {
 
     private func swipeLeftCommit() {
         guard let asset = current else { return }
+        Haptics.swipeDelete()
         stagedIds.insert(asset.localIdentifier)
         history.append(.markedDelete(asset.localIdentifier))
         advance()
@@ -298,6 +318,7 @@ struct SwipeDeckView: View {
 
     private func swipeRightCommit() {
         guard let asset = current else { return }
+        Haptics.swipeKeep()
         stagedIds.remove(asset.localIdentifier)
         history.append(.kept(asset.localIdentifier))
         advance()
@@ -310,10 +331,12 @@ struct SwipeDeckView: View {
             hintOpacity = 1
             index += 1
         }
+        prefetchUpcomingVideos()
     }
 
     private func undo() {
         guard let last = history.popLast() else { return }
+        Haptics.undo()
         photoZoomed = false
         index = max(0, index - 1)
         switch last {
@@ -321,6 +344,16 @@ struct SwipeDeckView: View {
             stagedIds.remove(id)
         case .kept:
             break
+        }
+    }
+
+    /// Warm the next 1–2 video assets so the next card doesn't decode from cold.
+    /// Runs after every advance() and once on first appear.
+    private func prefetchUpcomingVideos() {
+        for offset in 1...2 {
+            let i = index + offset
+            guard assets.indices.contains(i) else { break }
+            videoPrefetcher.prefetch(asset: assets[i])
         }
     }
 }
@@ -331,6 +364,8 @@ struct SwipeDeckView: View {
 private struct SwipeCardVideoPreview: View {
     let asset: PHAsset
     let targetSide: CGFloat
+    let prefetcher: VideoPrefetcher
+    let autoplay: Bool
 
     @State private var player: AVPlayer?
 
@@ -369,7 +404,15 @@ private struct SwipeCardVideoPreview: View {
     private func startPlayback() async {
         stopPlayback()
         Self.configurePlaybackAudioSession()
-        guard let item = await Self.fetchPlayerItem(for: asset) else {
+        // Prefer a prefetched item so the next swiped video starts instantly. `??` can't
+        // host an `await` autoclosure, so check the cache first and fall back to a request.
+        let resolvedItem: AVPlayerItem?
+        if let cached = prefetcher.takePlayerItem(for: asset.localIdentifier) {
+            resolvedItem = cached
+        } else {
+            resolvedItem = await Self.fetchPlayerItem(for: asset)
+        }
+        guard let item = resolvedItem else {
             Self.deactivatePlaybackAudioSessionIfPossible()
             return
         }
@@ -383,7 +426,7 @@ private struct SwipeCardVideoPreview: View {
             return
         }
         player = p
-        p.play()
+        if autoplay { p.play() }
     }
 
     @MainActor

@@ -27,6 +27,8 @@
 		B10000000000000000000012 /* DuplicatesViews.swift in Sources */ = {isa = PBXBuildFile; fileRef = B20000000000000000000012 /* DuplicatesViews.swift */; };
 		B10000000000000000000013 /* DeletionSummaryView.swift in Sources */ = {isa = PBXBuildFile; fileRef = B20000000000000000000013 /* DeletionSummaryView.swift */; };
 		B10000000000000000000014 /* PHAssetImageView.swift in Sources */ = {isa = PBXBuildFile; fileRef = B20000000000000000000014 /* PHAssetImageView.swift */; };
+		B10000000000000000000015 /* AppSettings.swift in Sources */ = {isa = PBXBuildFile; fileRef = B20000000000000000000015 /* AppSettings.swift */; };
+		B10000000000000000000016 /* SettingsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = B20000000000000000000016 /* SettingsView.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
@@ -49,6 +51,8 @@
 		B20000000000000000000012 /* DuplicatesViews.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DuplicatesViews.swift; sourceTree = "<group>"; };
 		B20000000000000000000013 /* DeletionSummaryView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DeletionSummaryView.swift; sourceTree = "<group>"; };
 		B20000000000000000000014 /* PHAssetImageView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PHAssetImageView.swift; sourceTree = "<group>"; };
+		B20000000000000000000015 /* AppSettings.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppSettings.swift; sourceTree = "<group>"; };
+		B20000000000000000000016 /* SettingsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SettingsView.swift; sourceTree = "<group>"; };
 		B2000000000000000000000E /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
 		B30000000000000000000001 /* CleanGallery.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = CleanGallery.app; sourceTree = BUILT_PRODUCTS_DIR; };
 /* End PBXFileReference section */
@@ -94,6 +98,8 @@
 				B20000000000000000000011 /* DuplicateFinderViewModel.swift */,
 				B20000000000000000000012 /* DuplicatesViews.swift */,
 				B20000000000000000000013 /* DeletionSummaryView.swift */,
+				B20000000000000000000015 /* AppSettings.swift */,
+				B20000000000000000000016 /* SettingsView.swift */,
 				B2000000000000000000000E /* Assets.xcassets */,
 			);
 			path = CleanGallery;
@@ -195,6 +201,8 @@
 				B10000000000000000000011 /* DuplicateFinderViewModel.swift in Sources */,
 				B10000000000000000000012 /* DuplicatesViews.swift in Sources */,
 				B10000000000000000000013 /* DeletionSummaryView.swift in Sources */,
+				B10000000000000000000015 /* AppSettings.swift in Sources */,
+				B10000000000000000000016 /* SettingsView.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};

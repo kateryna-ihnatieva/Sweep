@@ -94,89 +94,134 @@ struct MonthListView: View {
     }
 
     private var listContent: some View {
-        List {
-            Section {
-                DuplicatesEntryRow(viewModel: duplicateFinder, onBrowse: { showDuplicatesSheet = true })
-            }
-
-            if gallery.isLoading && gallery.months.isEmpty {
+        ScrollViewReader { proxy in
+            List {
                 Section {
-                    HStack {
-                        Spacer()
-                        ProgressView("Loading…")
-                        Spacer()
+                    DuplicatesEntryRow(viewModel: duplicateFinder, onBrowse: { showDuplicatesSheet = true })
+                }
+
+                if gallery.isLoading && gallery.months.isEmpty {
+                    Section {
+                        HStack {
+                            Spacer()
+                            ProgressView("Loading…")
+                            Spacer()
+                        }
+                        .padding(.vertical, 24)
+                        .listRowBackground(Color.clear)
                     }
-                    .padding(.vertical, 24)
-                    .listRowBackground(Color.clear)
+                } else if let err = gallery.loadError {
+                    Section {
+                        Label(err, systemImage: "exclamationmark.triangle.fill")
+                            .foregroundStyle(.red)
+                    }
                 }
-            } else if let err = gallery.loadError {
-                Section {
-                    Label(err, systemImage: "exclamationmark.triangle.fill")
-                        .foregroundStyle(.red)
-                }
-            }
 
-            if !gallery.months.isEmpty {
-                Section {
-                    ForEach(gallery.months) { month in
-                        let reviewed = gallery.completedMonthIds.contains(month.id)
-                        Button {
-                            if reviewed {
-                                pendingReopen = month
-                            } else {
-                                path = [month]
-                            }
-                        } label: {
-                            monthRow(month, isReviewed: reviewed)
+                if availableYears.count > 1 {
+                    Section {
+                        YearSkimmer(years: availableYears, selectedYear: selectedYear) { year in
+                            jump(to: year, using: proxy)
                         }
-                        .swipeActions(edge: .trailing, allowsFullSwipe: false) {
-                            if reviewed {
-                                Button {
-                                    gallery.markMonthIncomplete(month.id)
-                                } label: {
-                                    Label("Reset", systemImage: "arrow.uturn.backward")
-                                }
-                                .tint(.orange)
-                            } else {
-                                Button {
-                                    gallery.markMonthCompleted(month.id)
-                                } label: {
-                                    Label("Reviewed", systemImage: "checkmark.seal.fill")
-                                }
-                                .tint(.green)
-                            }
-                        }
-                        .contextMenu {
-                            if reviewed {
-                                Button("Mark not done", systemImage: "arrow.uturn.backward") {
-                                    gallery.markMonthIncomplete(month.id)
-                                }
-                                Button("Open anyway", systemImage: "chevron.right") {
+                        .listRowInsets(EdgeInsets())
+                        .listRowBackground(Color.clear)
+                    }
+                }
+
+                if !gallery.months.isEmpty {
+                    Section {
+                        ForEach(gallery.months) { month in
+                            let reviewed = gallery.completedMonthIds.contains(month.id)
+                            Button {
+                                if reviewed {
+                                    pendingReopen = month
+                                } else {
                                     path = [month]
                                 }
-                            } else {
-                                Button("Mark as reviewed", systemImage: "checkmark.seal") {
-                                    gallery.markMonthCompleted(month.id)
+                            } label: {
+                                monthRow(month, isReviewed: reviewed)
+                            }
+                            .id(month.id)
+                            .swipeActions(edge: .trailing, allowsFullSwipe: false) {
+                                if reviewed {
+                                    Button {
+                                        gallery.markMonthIncomplete(month.id)
+                                    } label: {
+                                        Label("Reset", systemImage: "arrow.uturn.backward")
+                                    }
+                                    .tint(.orange)
+                                } else {
+                                    Button {
+                                        gallery.markMonthCompleted(month.id)
+                                    } label: {
+                                        Label("Reviewed", systemImage: "checkmark.seal.fill")
+                                    }
+                                    .tint(.green)
+                                }
+                            }
+                            .contextMenu {
+                                if reviewed {
+                                    Button("Mark not done", systemImage: "arrow.uturn.backward") {
+                                        gallery.markMonthIncomplete(month.id)
+                                    }
+                                    Button("Open anyway", systemImage: "chevron.right") {
+                                        path = [month]
+                                    }
+                                } else {
+                                    Button("Mark as reviewed", systemImage: "checkmark.seal") {
+                                        gallery.markMonthCompleted(month.id)
+                                    }
                                 }
                             }
                         }
-                    }
-                } header: {
-                    HStack {
-                        Text("Months")
-                        Spacer()
-                        if reviewedCount > 0 {
-                            Text("\(reviewedCount) of \(gallery.months.count) reviewed")
-                                .textCase(nil)
-                                .foregroundStyle(.secondary)
+                    } header: {
+                        HStack {
+                            Text("Months")
+                            Spacer()
+                            if reviewedCount > 0 {
+                                Text("\(reviewedCount) of \(gallery.months.count) reviewed")
+                                    .textCase(nil)
+                                    .foregroundStyle(.secondary)
+                            }
                         }
                     }
                 }
             }
+            .listStyle(.insetGrouped)
+            .refreshable {
+                await gallery.reloadMonths()
+            }
         }
-        .listStyle(.insetGrouped)
-        .refreshable {
-            await gallery.reloadMonths()
+    }
+
+    /// Years currently present in the library, newest first (matches the months order).
+    private var availableYears: [Int] {
+        var seen = Set<Int>()
+        var ordered: [Int] = []
+        for month in gallery.months {
+            let y = year(from: month.id)
+            if seen.insert(y).inserted { ordered.append(y) }
+        }
+        return ordered
+    }
+
+    /// Year of the month closest to the top of the current viewport. We approximate with
+    /// the first non-reviewed month, falling back to the very first month available.
+    private var selectedYear: Int? {
+        if let firstUnreviewed = gallery.months.first(where: { !gallery.completedMonthIds.contains($0.id) }) {
+            return year(from: firstUnreviewed.id)
+        }
+        return gallery.months.first.map { year(from: $0.id) }
+    }
+
+    private func year(from monthId: String) -> Int {
+        Int(monthId.prefix(4)) ?? 0
+    }
+
+    private func jump(to year: Int, using proxy: ScrollViewProxy) {
+        guard let target = gallery.months.first(where: { self.year(from: $0.id) == year }) else { return }
+        Haptics.selectionChanged()
+        withAnimation(.easeInOut(duration: 0.25)) {
+            proxy.scrollTo(target.id, anchor: .top)
         }
     }
 
@@ -236,6 +281,60 @@ struct MonthListView: View {
             Label("Photos access is off", systemImage: "lock.fill")
         } description: {
             Text("Turn it on in Settings → Privacy & Security → Photos → Sweep.")
+        }
+    }
+}
+
+/// Horizontal pill row of years above the months list. Tapping a pill scrolls the list
+/// to the first month in that year. Designed to live inside a `List` row with cleared
+/// insets/background so it reads as a free-floating chip strip.
+private struct YearSkimmer: View {
+    let years: [Int]
+    let selectedYear: Int?
+    let onSelect: (Int) -> Void
+
+    @EnvironmentObject private var settings: AppSettings
+
+    var body: some View {
+        ScrollViewReader { proxy in
+            ScrollView(.horizontal, showsIndicators: false) {
+                HStack(spacing: 8) {
+                    ForEach(years, id: \.self) { y in
+                        let isActive = (selectedYear == y)
+                        Button {
+                            onSelect(y)
+                        } label: {
+                            Text(verbatim: String(y))
+                                .font(.subheadline.weight(.semibold))
+                                .monospacedDigit()
+                                .foregroundStyle(isActive ? Color.white : AppTheme.textPrimary)
+                                .padding(.horizontal, 12)
+                                .padding(.vertical, 7)
+                                .background(
+                                    Capsule()
+                                        .fill(isActive ? settings.accentColor : AppTheme.surface)
+                                )
+                                .overlay(
+                                    Capsule()
+                                        .stroke(isActive ? Color.clear : AppTheme.border, lineWidth: 0.5)
+                                )
+                        }
+                        .buttonStyle(.plain)
+                        .id(y)
+                    }
+                }
+                .padding(.horizontal, 16)
+                .padding(.vertical, 10)
+            }
+            .onAppear {
+                if let y = selectedYear { proxy.scrollTo(y, anchor: .center) }
+            }
+            .onChange(of: selectedYear) { _, newValue in
+                guard let y = newValue else { return }
+                withAnimation(.easeInOut(duration: 0.2)) {
+                    proxy.scrollTo(y, anchor: .center)
+                }
+            }
         }
     }
 }
