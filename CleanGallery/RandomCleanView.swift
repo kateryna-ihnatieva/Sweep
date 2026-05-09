@@ -54,6 +54,8 @@ struct RandomCleanView: View {
         .background(AppTheme.background)
         .navigationTitle("Random 10")
         .navigationBarTitleDisplayMode(.inline)
+        // While swiping cards, a slight downward drag would otherwise dismiss the sheet and lose progress.
+        .interactiveDismissDisabled(phase == .swipe && !assets.isEmpty)
         .onAppear {
             if assets.isEmpty {
                 assets = gallery.randomSample(count: 10)

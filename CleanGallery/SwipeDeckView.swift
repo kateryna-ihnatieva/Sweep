@@ -57,11 +57,33 @@ struct SwipeDeckView: View {
                     .simultaneousGesture(
                         DragGesture(minimumDistance: asset.mediaType == .video ? 28 : 8)
                             .onChanged { v in
-                                drag = v.translation
-                                hintOpacity = max(0.15, 1 - min(abs(v.translation.width) / 120.0, 1))
+                                let tx = v.translation.width
+                                let ty = v.translation.height
+                                // Ignore mostly-vertical motion: keeps the card still on accidental flicks
+                                // and never competes with the sheet's "swipe down to dismiss" gesture.
+                                guard abs(tx) > abs(ty) else {
+                                    if drag != .zero {
+                                        withAnimation(.spring(response: 0.3, dampingFraction: 0.85)) {
+                                            drag = .zero
+                                            hintOpacity = 1
+                                        }
+                                    }
+                                    return
+                                }
+                                drag = CGSize(width: tx, height: 0)
+                                hintOpacity = max(0.15, 1 - min(abs(tx) / 120.0, 1))
                             }
                             .onEnded { v in
-                                decide(translation: v.translation.width)
+                                let tx = v.translation.width
+                                let ty = v.translation.height
+                                guard abs(tx) > abs(ty) else {
+                                    withAnimation(.spring(response: 0.35, dampingFraction: 0.82)) {
+                                        drag = .zero
+                                        hintOpacity = 1
+                                    }
+                                    return
+                                }
+                                decide(translation: tx)
                             }
                     )
                 }

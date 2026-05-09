@@ -295,6 +295,7 @@ struct DuplicateGroupCleanFlowView: View {
         .background(AppTheme.background)
         .navigationTitle(navTitle)
         .navigationBarTitleDisplayMode(.inline)
+        .interactiveDismissDisabled(phase == .swipe)
         .alert("Error", isPresented: Binding(
             get: { errorMessage != nil },
             set: { if !$0 { errorMessage = nil } }
