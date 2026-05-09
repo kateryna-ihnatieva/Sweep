@@ -243,8 +243,8 @@ struct DuplicatesSheetView: View {
 
     private func kindSubtitle(_ kind: DuplicateKind) -> String {
         switch kind {
-        case .photoVisual: return "Identical preview fingerprint"
-        case .videoHeuristic: return "Same size, length, and resolution"
+        case .photoVisual: return "Byte-identical photo"
+        case .videoHeuristic: return "Byte-identical video"
         }
     }
 }

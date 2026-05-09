@@ -2,24 +2,24 @@ import Foundation
 import Photos
 
 enum DuplicateKind: String, CaseIterable {
-    /// Perceptual dHash clustering (exact + near match in time).
+    /// Byte-identical photos (matching dimensions and total file size, then SHA-256 of the original resource).
     case photoVisual
-    /// Same resolution, duration (rounded), and file size (may include false positives).
+    /// Byte-identical videos (matching resolution, duration, total file size, then SHA-256 of the original resource).
     case videoHeuristic
 
     var listSectionTitle: String {
         switch self {
-        case .photoVisual: return "Photo duplicates"
-        case .videoHeuristic: return "Possible duplicate videos"
+        case .photoVisual: return "Identical photos"
+        case .videoHeuristic: return "Identical videos"
         }
     }
 
     var footnote: String {
         switch self {
         case .photoVisual:
-            return "Perceptual hash (dHash) on a preview: finds same or very similar photos, including re-saves. A short time window catches copies taken apart; review groups before deleting."
+            return "Truly identical bytes only: matches dimensions and exact file size, then verifies with a SHA-256 hash of the original photo. Visually similar photos that were re-edited or re-encoded are not grouped here."
         case .videoHeuristic:
-            return "Matched by length, resolution, and file size only — review before deleting."
+            return "Truly identical bytes only: matches resolution, duration, and exact file size, then verifies with a SHA-256 hash of the original video."
         }
     }
 }

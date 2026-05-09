@@ -87,12 +87,8 @@ struct MonthListView: View {
         }
     }
 
-    private var pendingMonths: [MonthBucket] {
-        gallery.months.filter { !gallery.completedMonthIds.contains($0.id) }
-    }
-
-    private var reviewedMonths: [MonthBucket] {
-        gallery.months.filter { gallery.completedMonthIds.contains($0.id) }
+    private var reviewedCount: Int {
+        gallery.months.reduce(0) { acc, m in acc + (gallery.completedMonthIds.contains(m.id) ? 1 : 0) }
     }
 
     private var listContent: some View {
@@ -113,21 +109,11 @@ struct MonthListView: View {
                         .padding()
                 }
 
-                if !pendingMonths.isEmpty {
-                    sectionHeader("To review", count: pendingMonths.count)
+                if !gallery.months.isEmpty {
+                    monthsHeader
                     LazyVStack(spacing: 10) {
-                        ForEach(pendingMonths) { month in
-                            monthButton(month, isReviewed: false)
-                        }
-                    }
-                }
-
-                if !reviewedMonths.isEmpty {
-                    sectionHeader("Already reviewed", count: reviewedMonths.count)
-                        .padding(.top, pendingMonths.isEmpty ? 0 : 8)
-                    LazyVStack(spacing: 10) {
-                        ForEach(reviewedMonths) { month in
-                            monthButton(month, isReviewed: true)
+                        ForEach(gallery.months) { month in
+                            monthButton(month, isReviewed: gallery.completedMonthIds.contains(month.id))
                         }
                     }
                 }
@@ -141,19 +127,21 @@ struct MonthListView: View {
         .background(AppTheme.background)
     }
 
-    private func sectionHeader(_ title: String, count: Int) -> some View {
+    private var monthsHeader: some View {
         HStack(spacing: 8) {
-            Text(title.uppercased())
+            Text("MONTHS")
                 .font(.caption.weight(.bold))
                 .tracking(0.6)
                 .foregroundStyle(AppTheme.textSecondary)
-            Text("\(count)")
-                .font(.caption2.weight(.semibold))
-                .foregroundStyle(AppTheme.textSecondary)
-                .padding(.horizontal, 8)
-                .padding(.vertical, 2)
-                .background(AppTheme.surfaceElevated, in: Capsule())
             Spacer()
+            if reviewedCount > 0 {
+                Text("\(reviewedCount) of \(gallery.months.count) reviewed")
+                    .font(.caption2.weight(.semibold))
+                    .foregroundStyle(AppTheme.accent)
+                    .padding(.horizontal, 8)
+                    .padding(.vertical, 3)
+                    .background(AppTheme.accent.opacity(0.16), in: Capsule())
+            }
         }
         .padding(.horizontal, 4)
     }
