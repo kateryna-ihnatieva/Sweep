@@ -5,14 +5,13 @@ struct MainTabView: View {
         TabView {
             MonthListView()
                 .tabItem {
-                    Label("Clean", systemImage: "square.stack.3d.down.right")
+                    Label("Library", systemImage: "photo.on.rectangle.angled")
                 }
 
             StatsView()
                 .tabItem {
-                    Label("Stats", systemImage: "chart.bar.xaxis")
+                    Label("Stats", systemImage: "chart.bar.fill")
                 }
         }
-        .tint(AppTheme.accent)
     }
 }

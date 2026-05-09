@@ -48,7 +48,7 @@ struct MonthCleanFlowView: View {
             }
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
-        .background(AppTheme.background)
+        .background(phase == .swipe ? AppTheme.backgroundFlat : AppTheme.background)
         .navigationTitle(month.title)
         .navigationBarTitleDisplayMode(.inline)
         .alert("Error", isPresented: Binding(

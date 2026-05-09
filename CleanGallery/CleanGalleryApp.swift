@@ -8,7 +8,7 @@ struct SweepApp: App {
         WindowGroup {
             MainTabView()
                 .environmentObject(gallery)
-                .preferredColorScheme(.dark)
+                .tint(AppTheme.accent)
         }
     }
 }

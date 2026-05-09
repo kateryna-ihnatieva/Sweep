@@ -97,38 +97,9 @@ struct SwipeDeckView: View {
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
                 .frame(minHeight: 280)
 
-                HStack(spacing: 16) {
-                    Button(action: { swipeLeftCommit() }) {
-                        labelCircle(system: "trash", color: AppTheme.danger, title: "Delete")
-                    }
-                    .buttonStyle(.plain)
-
-                    Button(action: undo) {
-                        VStack(spacing: 6) {
-                            Image(systemName: "arrow.uturn.backward")
-                                .font(.title3.weight(.semibold))
-                            Text("Undo")
-                                .font(.caption.weight(.medium))
-                        }
-                        .foregroundStyle(AppTheme.textPrimary)
-                        .frame(maxWidth: .infinity)
-                        .padding(.vertical, 14)
-                        .background(
-                            RoundedRectangle(cornerRadius: 14, style: .continuous)
-                                .fill(AppTheme.surfaceElevated)
-                        )
-                        .contentShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
-                    }
-                    .buttonStyle(.plain)
-                    .disabled(history.isEmpty)
-
-                    Button(action: { swipeRightCommit() }) {
-                        labelCircle(system: "checkmark", color: AppTheme.keep, title: "Keep")
-                    }
-                    .buttonStyle(.plain)
-                }
-                .padding(.horizontal, 8)
-                .padding(.bottom, 8)
+                actionBar
+                    .padding(.horizontal, 12)
+                    .padding(.bottom, 8)
             } else {
                 Color.clear
                     .frame(maxHeight: 240)
@@ -144,48 +115,130 @@ struct SwipeDeckView: View {
     }
 
     private var progressHeader: some View {
-        HStack(alignment: .top, spacing: 12) {
-            VStack(alignment: .leading, spacing: 4) {
-                Text("\(index + 1) / \(assets.count)")
-                    .font(.subheadline.weight(.semibold))
+        VStack(alignment: .leading, spacing: 8) {
+            HStack(alignment: .firstTextBaseline, spacing: 8) {
+                Text("\(index + 1)")
+                    .font(.title3.weight(.bold))
                     .foregroundStyle(AppTheme.textPrimary)
+                Text("of \(assets.count)")
+                    .font(.subheadline)
+                    .foregroundStyle(.secondary)
+                Spacer(minLength: 8)
+                if let c = current, c.mediaType == .video {
+                    Label("Video", systemImage: "play.rectangle.fill")
+                        .labelStyle(.titleAndIcon)
+                        .font(.caption.weight(.semibold))
+                        .padding(.horizontal, 10)
+                        .padding(.vertical, 4)
+                        .background(.regularMaterial, in: Capsule())
+                        .foregroundStyle(.secondary)
+                }
                 if let a = current, let date = a.creationDate {
-                    Text(date, format: Date.FormatStyle(date: .abbreviated, time: .shortened))
+                    Text(date, format: .dateTime.day().month(.abbreviated).year())
                         .font(.caption)
-                        .foregroundStyle(AppTheme.textSecondary)
-                } else if current != nil {
-                    Text("No capture date")
-                        .font(.caption)
-                        .foregroundStyle(AppTheme.textSecondary)
+                        .foregroundStyle(.secondary)
                 }
             }
-            Spacer(minLength: 8)
-            if let c = current, c.mediaType == .video {
-                Text("Video")
-                    .font(.caption.weight(.semibold))
-                    .padding(.horizontal, 10)
-                    .padding(.vertical, 4)
-                    .background(AppTheme.surfaceElevated, in: Capsule())
-                    .foregroundStyle(AppTheme.textSecondary)
-            }
+            ProgressView(value: Double(index), total: Double(max(1, assets.count)))
+                .tint(AppTheme.accent)
+                .scaleEffect(x: 1, y: 0.6, anchor: .center)
         }
     }
 
     private var swipeHints: some View {
         HStack {
-            Text("DELETE")
-                .font(.caption.weight(.heavy))
-                .foregroundStyle(AppTheme.danger)
-                .padding(10)
-                .opacity(drag.width < -24 ? 1 : 0.25 * hintOpacity)
+            hintBadge(text: "DELETE", color: AppTheme.danger, system: "trash.fill")
+                .opacity(drag.width < -24 ? 1 : 0.18 * hintOpacity)
+                .scaleEffect(drag.width < -24 ? 1.05 : 1)
             Spacer()
-            Text("KEEP")
-                .font(.caption.weight(.heavy))
-                .foregroundStyle(AppTheme.keep)
-                .padding(10)
-                .opacity(drag.width > 24 ? 1 : 0.25 * hintOpacity)
+            hintBadge(text: "KEEP", color: AppTheme.keep, system: "checkmark")
+                .opacity(drag.width > 24 ? 1 : 0.18 * hintOpacity)
+                .scaleEffect(drag.width > 24 ? 1.05 : 1)
         }
-        .padding(.horizontal, 8)
+        .padding(.horizontal, 16)
+    }
+
+    private func hintBadge(text: String, color: Color, system: String) -> some View {
+        Label(text, systemImage: system)
+            .font(.caption.weight(.heavy))
+            .foregroundStyle(color)
+            .padding(.horizontal, 10)
+            .padding(.vertical, 6)
+            .background(color.opacity(0.18), in: Capsule())
+            .overlay(Capsule().stroke(color.opacity(0.4), lineWidth: 1))
+    }
+
+    private var actionBar: some View {
+        HStack(spacing: 12) {
+            actionButton(
+                icon: "trash.fill",
+                title: "Delete",
+                tint: AppTheme.danger,
+                role: .destructive,
+                action: swipeLeftCommit
+            )
+            undoButton
+            actionButton(
+                icon: "checkmark",
+                title: "Keep",
+                tint: AppTheme.keep,
+                role: .none,
+                action: swipeRightCommit
+            )
+        }
+    }
+
+    private func actionButton(
+        icon: String,
+        title: String,
+        tint: Color,
+        role: ButtonRole?,
+        action: @escaping () -> Void
+    ) -> some View {
+        Button(role: role, action: action) {
+            VStack(spacing: 6) {
+                ZStack {
+                    Circle()
+                        .fill(tint.gradient)
+                    Image(systemName: icon)
+                        .font(.title3.weight(.bold))
+                        .foregroundStyle(.white)
+                }
+                .frame(width: 56, height: 56)
+                .shadow(color: tint.opacity(0.35), radius: 6, y: 3)
+
+                Text(title)
+                    .font(.caption2.weight(.semibold))
+                    .foregroundStyle(.secondary)
+            }
+            .frame(maxWidth: .infinity)
+            .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
+    }
+
+    private var undoButton: some View {
+        Button(action: undo) {
+            VStack(spacing: 6) {
+                ZStack {
+                    Circle()
+                        .fill(.regularMaterial)
+                        .overlay(Circle().stroke(AppTheme.border, lineWidth: 0.5))
+                    Image(systemName: "arrow.uturn.backward")
+                        .font(.title3.weight(.semibold))
+                        .foregroundStyle(history.isEmpty ? AppTheme.textTertiary : AppTheme.textPrimary)
+                }
+                .frame(width: 56, height: 56)
+
+                Text("Undo")
+                    .font(.caption2.weight(.semibold))
+                    .foregroundStyle(.secondary)
+            }
+            .frame(maxWidth: .infinity)
+            .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
+        .disabled(history.isEmpty)
     }
 
     private func card(for asset: PHAsset, cardSize: CGSize) -> some View {
@@ -196,7 +249,7 @@ struct SwipeDeckView: View {
 
         return ZStack {
             RoundedRectangle(cornerRadius: AppTheme.cardCorner, style: .continuous)
-                .fill(AppTheme.surface)
+                .fill(AppTheme.mediaBackdrop)
 
             Group {
                 if asset.mediaType == .video {
@@ -215,29 +268,12 @@ struct SwipeDeckView: View {
             }
             .frame(maxWidth: .infinity, maxHeight: .infinity)
             .clipShape(RoundedRectangle(cornerRadius: innerRadius, style: .continuous))
-            .padding(4)
+            .padding(3)
             // Forces a fresh ZoomablePhotoView (and therefore a reset zoom level) when the asset changes.
             .id(asset.localIdentifier)
-
-            RoundedRectangle(cornerRadius: AppTheme.cardCorner, style: .continuous)
-                .stroke(AppTheme.border, lineWidth: 1)
         }
         .frame(width: cardSize.width, height: cardSize.height)
-        .shadow(color: .black.opacity(0.45), radius: 24, y: 14)
-    }
-
-    private func labelCircle(system: String, color: Color, title: String) -> some View {
-        VStack(spacing: 6) {
-            Image(systemName: system)
-                .font(.title3.weight(.bold))
-                .foregroundStyle(.white)
-                .frame(width: 56, height: 56)
-                .background(Circle().fill(color.opacity(0.92)))
-            Text(title)
-                .font(.caption2.weight(.semibold))
-                .foregroundStyle(AppTheme.textSecondary)
-        }
-        .frame(maxWidth: .infinity)
+        .shadow(color: .black.opacity(0.28), radius: 22, y: 12)
     }
 
     private func decide(translation: CGFloat) {
@@ -283,7 +319,7 @@ struct SwipeDeckView: View {
         switch last {
         case let .markedDelete(id):
             stagedIds.remove(id)
-        case let .kept(id):
+        case .kept:
             break
         }
     }

@@ -51,7 +51,7 @@ struct RandomCleanView: View {
             }
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
-        .background(AppTheme.background)
+        .background(phase == .swipe ? AppTheme.backgroundFlat : AppTheme.background)
         .navigationTitle("Random 10")
         .navigationBarTitleDisplayMode(.inline)
         // While swiping cards, a slight downward drag would otherwise dismiss the sheet and lose progress.

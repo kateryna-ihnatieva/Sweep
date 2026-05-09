@@ -1,91 +1,81 @@
 import Photos
 import SwiftUI
 
-// MARK: - Library entry (top of month list)
+// MARK: - Library entry (lives inside MonthListView's List section)
 
-struct DuplicatesEntryCard: View {
+struct DuplicatesEntryRow: View {
     @ObservedObject var viewModel: DuplicateFinderViewModel
     var onBrowse: () -> Void
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 14) {
+        VStack(alignment: .leading, spacing: 12) {
             HStack(alignment: .top, spacing: 12) {
-                Image(systemName: "square.on.square")
-                    .font(.title2.weight(.semibold))
-                    .foregroundStyle(AppTheme.accent)
-                    .frame(width: 40, height: 40)
-                    .background(AppTheme.surfaceElevated, in: RoundedRectangle(cornerRadius: 12, style: .continuous))
-
-                VStack(alignment: .leading, spacing: 4) {
-                    Text("Duplicates")
-                        .font(.headline)
-                        .foregroundStyle(AppTheme.textPrimary)
-                    Text("Find identical-looking photos and videos with matching size, length, and resolution.")
-                        .font(.caption)
-                        .foregroundStyle(AppTheme.textSecondary)
-                        .fixedSize(horizontal: false, vertical: true)
+                ZStack {
+                    RoundedRectangle(cornerRadius: 10, style: .continuous)
+                        .fill(AppTheme.accent.opacity(0.14))
+                        .frame(width: 38, height: 38)
+                    Image(systemName: "square.on.square")
+                        .symbolRenderingMode(.hierarchical)
+                        .foregroundStyle(AppTheme.accent)
+                        .font(.title3)
                 }
+
+                VStack(alignment: .leading, spacing: 2) {
+                    Text("Duplicates")
+                        .font(.body.weight(.semibold))
+                    if viewModel.hasResults {
+                        Text(summaryLine)
+                            .font(.subheadline)
+                            .foregroundStyle(.secondary)
+                    } else {
+                        Text("Find byte-identical photos and videos")
+                            .font(.subheadline)
+                            .foregroundStyle(.secondary)
+                    }
+                }
+                Spacer()
             }
 
             if viewModel.isScanning {
-                ProgressView(value: viewModel.progress) {
-                    Text("Scanning library…")
-                        .font(.caption.weight(.medium))
-                        .foregroundStyle(AppTheme.textSecondary)
-                }
-                .tint(AppTheme.accent)
+                ProgressView(value: viewModel.progress)
+                    .tint(AppTheme.accent)
             }
 
-            if viewModel.hasResults, !viewModel.isScanning {
-                Text(summaryLine)
-                    .font(.subheadline.weight(.medium))
-                    .foregroundStyle(AppTheme.textPrimary)
-
-                Button(action: onBrowse) {
-                    Text("Browse duplicate sets")
-                        .frame(maxWidth: .infinity)
-                }
-                .buttonStyle(PrimaryButtonStyle())
-            }
-
-            Group {
+            HStack(spacing: 8) {
                 if viewModel.hasResults {
+                    Button(action: onBrowse) {
+                        Label("Browse sets", systemImage: "list.bullet")
+                    }
+                    .buttonStyle(.borderedProminent)
+                    .controlSize(.small)
+
                     Button {
                         Task { await viewModel.scanLibrary() }
                     } label: {
-                        Text("Scan again")
-                            .frame(maxWidth: .infinity)
+                        Label("Scan again", systemImage: "arrow.clockwise")
                     }
                     .buttonStyle(.bordered)
-                    .tint(AppTheme.accent)
+                    .controlSize(.small)
                 } else {
                     Button {
                         Task { await viewModel.scanLibrary() }
                     } label: {
-                        Text("Scan library")
-                            .frame(maxWidth: .infinity)
+                        Label("Scan library", systemImage: "doc.text.magnifyingglass")
                     }
-                    .buttonStyle(PrimaryButtonStyle())
+                    .buttonStyle(.borderedProminent)
+                    .controlSize(.small)
                 }
             }
             .disabled(viewModel.isScanning)
         }
-        .padding(16)
-        .background(
-            RoundedRectangle(cornerRadius: AppTheme.listRowCorner, style: .continuous)
-                .fill(AppTheme.surface)
-                .overlay {
-                    RoundedRectangle(cornerRadius: AppTheme.listRowCorner, style: .continuous)
-                        .stroke(AppTheme.border, lineWidth: 1)
-                }
-        )
+        .padding(.vertical, 4)
     }
 
     private var summaryLine: String {
         let sets = viewModel.photoGroups.count + viewModel.videoGroups.count
         let items = viewModel.totalDuplicateItems
         let extras = viewModel.totalExtraCopies
-        return "\(sets) sets · \(items) items (\(extras) extra copies)"
+        return "\(sets) sets · \(items) items (\(extras) extra)"
     }
 }
 
@@ -100,67 +90,71 @@ struct DuplicatesSheetView: View {
 
     var body: some View {
         NavigationStack(path: $path) {
-            Group {
-                if !dup.hasResults && dup.isScanning {
-                    VStack(spacing: 16) {
-                        ProgressView(value: dup.progress) {
-                            Text("Scanning…")
-                        }
-                        .tint(AppTheme.accent)
-                        .padding()
+            content
+                .navigationTitle("Duplicates")
+                .navigationBarTitleDisplayMode(.inline)
+                .toolbar {
+                    ToolbarItem(placement: .cancellationAction) {
+                        Button("Close") { dismiss() }
                     }
-                    .frame(maxWidth: .infinity, maxHeight: .infinity)
-                    .background(AppTheme.background)
-                } else if !dup.hasResults {
-                    ContentUnavailableView(
-                        "No scan yet",
-                        systemImage: "doc.text.magnifyingglass",
-                        description: Text("Run a scan from the library screen, or tap Scan again above.")
-                    )
-                    .background(AppTheme.background)
-                } else {
-                    duplicatesList
-                        .overlay {
-                            if dup.isScanning {
-                                ZStack {
-                                    Color.black.opacity(0.35)
-                                        .ignoresSafeArea()
-                                    ProgressView(value: dup.progress) {
-                                        Text("Updating…")
-                                    }
-                                    .tint(AppTheme.accent)
-                                    .padding(24)
-                                    .background(.ultraThinMaterial, in: RoundedRectangle(cornerRadius: 16, style: .continuous))
-                                }
-                            }
+                    ToolbarItem(placement: .primaryAction) {
+                        Button {
+                            Task { await dup.scanLibrary() }
+                        } label: {
+                            Label("Scan again", systemImage: "arrow.clockwise")
                         }
-                }
-            }
-            .navigationTitle("Duplicate sets")
-            .navigationBarTitleDisplayMode(.inline)
-            .toolbar {
-                ToolbarItem(placement: .cancellationAction) {
-                    Button("Close") { dismiss() }
-                        .buttonStyle(.plain)
-                }
-                ToolbarItem(placement: .primaryAction) {
-                    Button("Scan again") {
-                        Task { await dup.scanLibrary() }
+                        .disabled(dup.isScanning)
                     }
-                    .buttonStyle(.plain)
-                    .disabled(dup.isScanning)
                 }
-            }
-            .navigationDestination(for: String.self) { id in
-                if let group = dup.group(id: id) {
-                    DuplicateGroupCleanFlowView(group: group)
-                        .environmentObject(gallery)
-                } else {
-                    ContentUnavailableView("Unavailable", systemImage: "exclamationmark.triangle")
+                .navigationDestination(for: String.self) { id in
+                    if let group = dup.group(id: id) {
+                        DuplicateGroupCleanFlowView(group: group)
+                            .environmentObject(gallery)
+                    } else {
+                        ContentUnavailableView("Unavailable", systemImage: "exclamationmark.triangle")
+                    }
                 }
-            }
         }
-        .background(AppTheme.background)
+    }
+
+    @ViewBuilder
+    private var content: some View {
+        if !dup.hasResults && dup.isScanning {
+            VStack(spacing: 14) {
+                ProgressView(value: dup.progress)
+                    .tint(AppTheme.accent)
+                    .frame(maxWidth: 280)
+                Text("Scanning library…")
+                    .font(.subheadline)
+                    .foregroundStyle(.secondary)
+            }
+            .padding()
+            .frame(maxWidth: .infinity, maxHeight: .infinity)
+            .background(AppTheme.background)
+        } else if !dup.hasResults {
+            ContentUnavailableView(
+                "No scan yet",
+                systemImage: "doc.text.magnifyingglass",
+                description: Text("Tap Scan again in the top-right corner to look for duplicates.")
+            )
+        } else {
+            duplicatesList
+                .overlay(alignment: .bottom) {
+                    if dup.isScanning {
+                        HStack(spacing: 10) {
+                            ProgressView(value: dup.progress)
+                                .frame(maxWidth: 160)
+                            Text("Updating…")
+                                .font(.caption)
+                                .foregroundStyle(.secondary)
+                        }
+                        .padding(.horizontal, 14)
+                        .padding(.vertical, 10)
+                        .background(.regularMaterial, in: Capsule())
+                        .padding(.bottom, 16)
+                    }
+                }
+        }
     }
 
     private var duplicatesList: some View {
@@ -174,7 +168,6 @@ struct DuplicatesSheetView: View {
                     Text(DuplicateKind.photoVisual.listSectionTitle)
                 } footer: {
                     Text(DuplicateKind.photoVisual.footnote)
-                        .font(.caption2)
                 }
             }
 
@@ -187,12 +180,10 @@ struct DuplicatesSheetView: View {
                     Text(DuplicateKind.videoHeuristic.listSectionTitle)
                 } footer: {
                     Text(DuplicateKind.videoHeuristic.footnote)
-                        .font(.caption2)
                 }
             }
         }
-        .scrollContentBackground(.hidden)
-        .background(AppTheme.background)
+        .listStyle(.insetGrouped)
     }
 
     private func duplicateRow(_ group: DuplicateGroup) -> some View {
@@ -200,7 +191,7 @@ struct DuplicatesSheetView: View {
             path.append(group.id)
         } label: {
             HStack(spacing: 12) {
-                ZStack {
+                ZStack(alignment: .topTrailing) {
                     if let first = group.assets.first {
                         AssetThumbnailView(asset: first, targetSide: 56)
                             .frame(width: 56, height: 56)
@@ -211,34 +202,30 @@ struct DuplicatesSheetView: View {
                             .font(.caption2.weight(.bold))
                             .foregroundStyle(.white)
                             .padding(.horizontal, 6)
-                            .padding(.vertical, 3)
-                            .background(AppTheme.danger.opacity(0.92), in: Capsule())
-                            .offset(x: 22, y: -22)
+                            .padding(.vertical, 2)
+                            .background(AppTheme.danger, in: Capsule())
+                            .offset(x: 6, y: -6)
                     }
                 }
                 .frame(width: 56, height: 56)
 
-                VStack(alignment: .leading, spacing: 4) {
+                VStack(alignment: .leading, spacing: 2) {
                     Text("\(group.count) items")
-                        .font(.headline)
-                        .foregroundStyle(AppTheme.textPrimary)
+                        .font(.body.weight(.semibold))
                     Text(kindSubtitle(group.kind))
                         .font(.caption)
-                        .foregroundStyle(AppTheme.textSecondary)
+                        .foregroundStyle(.secondary)
                     if let d = group.assets.first?.creationDate {
-                        Text(d, style: .date)
+                        Text(d, format: .dateTime.day().month(.abbreviated).year())
                             .font(.caption2)
-                            .foregroundStyle(AppTheme.textSecondary.opacity(0.8))
+                            .foregroundStyle(.tertiary)
                     }
                 }
                 Spacer()
-                Image(systemName: "chevron.right")
-                    .font(.caption.weight(.semibold))
-                    .foregroundStyle(AppTheme.textSecondary.opacity(0.5))
             }
-            .padding(.vertical, 4)
+            .padding(.vertical, 2)
+            .contentShape(Rectangle())
         }
-        .buttonStyle(.plain)
     }
 
     private func kindSubtitle(_ kind: DuplicateKind) -> String {
@@ -292,7 +279,7 @@ struct DuplicateGroupCleanFlowView: View {
             }
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
-        .background(AppTheme.background)
+        .background(phase == .swipe ? AppTheme.backgroundFlat : AppTheme.background)
         .navigationTitle(navTitle)
         .navigationBarTitleDisplayMode(.inline)
         .interactiveDismissDisabled(phase == .swipe)
@@ -308,8 +295,8 @@ struct DuplicateGroupCleanFlowView: View {
 
     private var navTitle: String {
         switch group.kind {
-        case .photoVisual: return "Photo duplicates"
-        case .videoHeuristic: return "Video look-alikes"
+        case .photoVisual: return "Identical photos"
+        case .videoHeuristic: return "Identical videos"
         }
     }
 
