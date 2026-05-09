@@ -3,79 +3,150 @@ import SwiftUI
 
 // MARK: - Library entry (lives inside MonthListView's List section)
 
+/// Hero-style promo card for the duplicate finder. Sits as the top section of the
+/// Library list and reads as a single editorial unit (icon, title, description, CTA),
+/// not a toolbar of buttons crammed into a list row.
 struct DuplicatesEntryRow: View {
     @ObservedObject var viewModel: DuplicateFinderViewModel
     var onBrowse: () -> Void
 
+    @EnvironmentObject private var settings: AppSettings
+
     var body: some View {
-        VStack(alignment: .leading, spacing: 12) {
-            HStack(alignment: .top, spacing: 12) {
-                ZStack {
-                    RoundedRectangle(cornerRadius: 10, style: .continuous)
-                        .fill(AppTheme.accent.opacity(0.14))
-                        .frame(width: 38, height: 38)
-                    Image(systemName: "square.on.square")
-                        .symbolRenderingMode(.hierarchical)
-                        .foregroundStyle(AppTheme.accent)
-                        .font(.title3)
-                }
-
-                VStack(alignment: .leading, spacing: 2) {
-                    Text("Duplicates")
-                        .font(.body.weight(.semibold))
-                    if viewModel.hasResults {
-                        Text(summaryLine)
-                            .font(.subheadline)
-                            .foregroundStyle(.secondary)
-                    } else {
-                        Text("Find byte-identical photos and videos")
-                            .font(.subheadline)
-                            .foregroundStyle(.secondary)
-                    }
-                }
-                Spacer()
+        VStack(alignment: .leading, spacing: 14) {
+            header
+            primaryAction
+            if viewModel.hasResults && !viewModel.isScanning {
+                rescanLink
             }
-
-            if viewModel.isScanning {
-                ProgressView(value: viewModel.progress)
-                    .tint(AppTheme.accent)
-            }
-
-            HStack(spacing: 8) {
-                if viewModel.hasResults {
-                    Button(action: onBrowse) {
-                        Label("Browse sets", systemImage: "list.bullet")
-                    }
-                    .buttonStyle(.borderedProminent)
-                    .controlSize(.small)
-
-                    Button {
-                        Task { await viewModel.scanLibrary() }
-                    } label: {
-                        Label("Scan again", systemImage: "arrow.clockwise")
-                    }
-                    .buttonStyle(.bordered)
-                    .controlSize(.small)
-                } else {
-                    Button {
-                        Task { await viewModel.scanLibrary() }
-                    } label: {
-                        Label("Scan library", systemImage: "doc.text.magnifyingglass")
-                    }
-                    .buttonStyle(.borderedProminent)
-                    .controlSize(.small)
-                }
-            }
-            .disabled(viewModel.isScanning)
         }
-        .padding(.vertical, 4)
+        .padding(18)
+        .background(cardBackground)
+        .overlay(
+            RoundedRectangle(cornerRadius: 20, style: .continuous)
+                .stroke(AppTheme.border.opacity(0.8), lineWidth: 0.5)
+        )
+        .listRowInsets(EdgeInsets(top: 8, leading: 16, bottom: 8, trailing: 16))
+        .listRowBackground(Color.clear)
+        .listRowSeparator(.hidden)
+    }
+
+    // MARK: Pieces
+
+    private var header: some View {
+        HStack(alignment: .top, spacing: 14) {
+            ZStack {
+                RoundedRectangle(cornerRadius: 14, style: .continuous)
+                    .fill(settings.accentColor.gradient)
+                Image(systemName: "square.on.square")
+                    .font(.title2.weight(.semibold))
+                    .foregroundStyle(.white)
+            }
+            .frame(width: 52, height: 52)
+            .shadow(color: settings.accentColor.opacity(0.30), radius: 6, y: 3)
+
+            VStack(alignment: .leading, spacing: 4) {
+                Text("Find duplicates")
+                    .font(.title3.weight(.semibold))
+                    .foregroundStyle(AppTheme.textPrimary)
+                Text(subtitle)
+                    .font(.subheadline)
+                    .foregroundStyle(.secondary)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+            Spacer(minLength: 0)
+        }
+    }
+
+    @ViewBuilder
+    private var primaryAction: some View {
+        if viewModel.isScanning {
+            scanningBlock
+        } else if viewModel.hasResults {
+            Button(action: onBrowse) {
+                Label(browseTitle, systemImage: "rectangle.stack")
+                    .frame(maxWidth: .infinity)
+            }
+            .buttonStyle(.borderedProminent)
+            .controlSize(.large)
+        } else {
+            Button {
+                Task { await viewModel.scanLibrary() }
+            } label: {
+                Label("Find duplicates", systemImage: "magnifyingglass")
+                    .frame(maxWidth: .infinity)
+            }
+            .buttonStyle(.borderedProminent)
+            .controlSize(.large)
+        }
+    }
+
+    private var scanningBlock: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            ProgressView(value: viewModel.progress)
+                .tint(settings.accentColor)
+            HStack {
+                Text("Scanning your library…")
+                Spacer()
+                Text("\(Int((viewModel.progress * 100).rounded()))%")
+                    .monospacedDigit()
+            }
+            .font(.caption)
+            .foregroundStyle(.secondary)
+        }
+    }
+
+    private var rescanLink: some View {
+        Button {
+            Task { await viewModel.scanLibrary() }
+        } label: {
+            Label("Scan again", systemImage: "arrow.clockwise")
+                .font(.footnote.weight(.semibold))
+                .foregroundStyle(settings.accentColor)
+                .frame(maxWidth: .infinity)
+                .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
+    }
+
+    private var cardBackground: some View {
+        ZStack {
+            RoundedRectangle(cornerRadius: 20, style: .continuous)
+                .fill(AppTheme.surface)
+            RoundedRectangle(cornerRadius: 20, style: .continuous)
+                .fill(
+                    LinearGradient(
+                        colors: [
+                            settings.accentColor.opacity(0.18),
+                            settings.accentColor.opacity(0.04)
+                        ],
+                        startPoint: .topLeading,
+                        endPoint: .bottomTrailing
+                    )
+                )
+        }
+    }
+
+    // MARK: Strings
+
+    private var subtitle: String {
+        if viewModel.hasResults {
+            return summaryLine
+        }
+        return "Surface byte-identical photos and videos and reclaim space without losing originals."
+    }
+
+    private var browseTitle: String {
+        let sets = viewModel.photoGroups.count + viewModel.videoGroups.count
+        return sets == 1 ? "Browse 1 set" : "Browse \(sets) sets"
     }
 
     private var summaryLine: String {
         let sets = viewModel.photoGroups.count + viewModel.videoGroups.count
-        let items = viewModel.totalDuplicateItems
         let extras = viewModel.totalExtraCopies
-        return "\(sets) sets · \(items) items (\(extras) extra)"
+        let setsLabel = "\(sets) set\(sets == 1 ? "" : "s")"
+        let extrasLabel = "\(extras) extra cop\(extras == 1 ? "y" : "ies")"
+        return "\(setsLabel) · \(extrasLabel)"
     }
 }
 
