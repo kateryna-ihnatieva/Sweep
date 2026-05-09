@@ -22,7 +22,12 @@ enum DuplicateScanner {
     // MARK: - Photo clusters (truly identical bytes)
 
     /// Two-pass photo grouping:
-    /// 1. Cheap candidate filter on `pixelWidth × pixelHeight × byteSum`.
+    /// 1. Cheap candidate filter on `pixelWidth × pixelHeight × primaryResourceSize`.
+    ///    The size of the *primary* resource is used (not the sum across resources),
+    ///    so an unedited copy and an edited copy of the same original still bucket
+    ///    together. When the size is unknown (iCloud-only assets that haven't been
+    ///    downloaded yet), the asset still gets a dimension-only fallback bucket
+    ///    so the hashing pass can still match it to a peer.
     /// 2. SHA-256 of the primary `PHAssetResource` data (streamed) for each candidate, then group by hash.
     /// Only assets with identical bytes end up in the same group.
     static func clusterPhotos(
@@ -36,16 +41,18 @@ enum DuplicateScanner {
             idPrefix: "p_",
             progress: progress,
             cheapKey: { a in
-                let bs = byteSum(for: a)
-                guard bs > 0 else { return nil }
-                return "\(a.pixelWidth)x\(a.pixelHeight)|\(bs)"
+                let dims = "\(a.pixelWidth)x\(a.pixelHeight)"
+                let size = primaryResourceSize(for: a)
+                return size > 0 ? "\(dims)|\(size)" : "\(dims)|cloud"
             }
         )
     }
 
     // MARK: - Video clusters (truly identical bytes)
 
-    /// Same idea as `clusterPhotos`, with a slightly stricter cheap filter (also requires identical duration).
+    /// Same idea as `clusterPhotos`, with duration baked into the cheap key. Falls
+    /// back to a `dimensions × duration` bucket for cloud-only videos with no
+    /// readable file size.
     static func clusterVideosWeak(
         _ assets: [PHAsset],
         progress: @Sendable @escaping (Double) -> Void
@@ -57,15 +64,19 @@ enum DuplicateScanner {
             idPrefix: "v_",
             progress: progress,
             cheapKey: { a in
-                let bs = byteSum(for: a)
-                guard bs > 0 else { return nil }
                 let durMs = Int((a.duration * 1000).rounded())
-                return "\(a.pixelWidth)x\(a.pixelHeight)|\(durMs)|\(bs)"
+                let dims = "\(a.pixelWidth)x\(a.pixelHeight)|\(durMs)"
+                let size = primaryResourceSize(for: a)
+                return size > 0 ? "\(dims)|\(size)" : "\(dims)|cloud"
             }
         )
     }
 
     // MARK: - Shared identical-bytes pipeline
+
+    /// Cap on concurrent SHA-256 streaming requests. Keeps iCloud / disk pressure
+    /// reasonable when a fallback dimensions-only bucket contains many assets.
+    private static let maxConcurrentHashes = 4
 
     private static func clusterIdentical(
         _ assets: [PHAsset],
@@ -75,12 +86,21 @@ enum DuplicateScanner {
         cheapKey: (PHAsset) -> String?
     ) async -> [DuplicateGroup] {
         var byCheapKey: [String: [PHAsset]] = [:]
+        var skipped = 0
         for a in assets {
-            guard let key = cheapKey(a) else { continue }
+            guard let key = cheapKey(a) else {
+                skipped += 1
+                continue
+            }
             byCheapKey[key, default: []].append(a)
         }
 
         let candidates = byCheapKey.values.filter { $0.count >= 2 }
+        #if DEBUG
+        let candidateAssets = candidates.reduce(0) { $0 + $1.count }
+        print("DuplicateScanner[\(kind)]: \(assets.count) input, \(skipped) skipped, \(byCheapKey.count) cheap-key buckets, \(candidates.count) candidate buckets covering \(candidateAssets) assets")
+        #endif
+
         guard !candidates.isEmpty else {
             progress(1)
             return []
@@ -91,26 +111,19 @@ enum DuplicateScanner {
         var finalClusters: [[PHAsset]] = []
 
         for candidate in candidates {
-            var byHash: [String: [PHAsset]] = [:]
-            await withTaskGroup(of: (PHAsset, String?).self) { group in
-                for a in candidate {
-                    group.addTask {
-                        let h = await sha256OfPrimaryResource(a)
-                        return (a, h)
-                    }
-                }
-                for await (asset, hash) in group {
-                    if let hash {
-                        byHash[hash, default: []].append(asset)
-                    }
-                    hashed += 1
-                    progress(min(0.99, Double(hashed) / Double(totalToHash)))
-                }
+            let byHash = await hashCandidateBucket(candidate) { _ in
+                hashed += 1
+                progress(min(0.99, Double(hashed) / Double(totalToHash)))
             }
             for cluster in byHash.values where cluster.count >= 2 {
                 finalClusters.append(cluster)
             }
         }
+
+        #if DEBUG
+        let identicalAssets = finalClusters.reduce(0) { $0 + $1.count }
+        print("DuplicateScanner[\(kind)]: produced \(finalClusters.count) duplicate groups covering \(identicalAssets) assets")
+        #endif
 
         progress(1)
 
@@ -125,6 +138,41 @@ enum DuplicateScanner {
                 if lhs.count != rhs.count { return lhs.count > rhs.count }
                 return lhs.id < rhs.id
             }
+    }
+
+    /// Hash a candidate bucket with bounded concurrency. Returns assets grouped
+    /// by SHA-256 hex digest; assets that fail to hash are silently dropped.
+    private static func hashCandidateBucket(
+        _ bucket: [PHAsset],
+        progressTick: @escaping (PHAsset) -> Void
+    ) async -> [String: [PHAsset]] {
+        var byHash: [String: [PHAsset]] = [:]
+        await withTaskGroup(of: (PHAsset, String?).self) { group in
+            var dispatched = 0
+            var iterator = bucket.makeIterator()
+            // Prime the pump with up to `maxConcurrentHashes` parallel hashes.
+            while dispatched < maxConcurrentHashes, let asset = iterator.next() {
+                group.addTask {
+                    let h = await sha256OfPrimaryResource(asset)
+                    return (asset, h)
+                }
+                dispatched += 1
+            }
+            // For each completed hash, slot in the next asset until the bucket is drained.
+            for await (asset, hash) in group {
+                if let hash {
+                    byHash[hash, default: []].append(asset)
+                }
+                progressTick(asset)
+                if let next = iterator.next() {
+                    group.addTask {
+                        let h = await sha256OfPrimaryResource(next)
+                        return (next, h)
+                    }
+                }
+            }
+        }
+        return byHash
     }
 
     // MARK: - Hashing
@@ -178,14 +226,16 @@ enum DuplicateScanner {
 
     // MARK: - Resource helpers
 
-    private static func byteSum(for asset: PHAsset) -> Int64 {
-        var total: Int64 = 0
-        for r in PHAssetResource.assetResources(for: asset) {
-            if let n = r.value(forKey: "fileSize") as? CLongLong {
-                total += Int64(n)
-            }
+    /// Size of the *primary* resource only — i.e. the file we will SHA-256.
+    /// Returns 0 for cloud-only assets where PhotoKit hasn't surfaced a fileSize yet,
+    /// in which case the caller should bucket by dimensions instead of dropping.
+    private static func primaryResourceSize(for asset: PHAsset) -> Int64 {
+        let resources = PHAssetResource.assetResources(for: asset)
+        guard let primary = pickPrimaryResource(resources, mediaType: asset.mediaType) else { return 0 }
+        if let n = primary.value(forKey: "fileSize") as? CLongLong, n > 0 {
+            return Int64(n)
         }
-        return total
+        return 0
     }
 }
 
